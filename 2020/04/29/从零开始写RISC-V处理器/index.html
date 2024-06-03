@@ -1,0 +1,2155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 4.2.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/font-awesome.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","scheme":"Muse","version":"7.7.2","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":true},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="前言第一次听到RISC-V这个词大概是两年前，当时觉得它也就是和MIPS这些CPU架构没什么区别，因此也就不以为然了。直到去年，RISC-V这个词开始频繁地出现在微信和其他网站上，此时我再也不能无动于衷了，于是开始在网上搜索有关它的资料，开始知道有SiFive这个网站，知道SiFive出了好几款RISC-V的开发板。可是最便宜的那一块开发板都要700多RMB，最后还是忍痛出手了一块。由于平时上班比">
+<meta property="og:type" content="article">
+<meta property="og:title" content="从零开始写RISC-V处理器">
+<meta property="og:url" content="http://yoursite.com/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/index.html">
+<meta property="og:site_name" content="liangkangnan的博客">
+<meta property="og:description" content="前言第一次听到RISC-V这个词大概是两年前，当时觉得它也就是和MIPS这些CPU架构没什么区别，因此也就不以为然了。直到去年，RISC-V这个词开始频繁地出现在微信和其他网站上，此时我再也不能无动于衷了，于是开始在网上搜索有关它的资料，开始知道有SiFive这个网站，知道SiFive出了好几款RISC-V的开发板。可是最便宜的那一块开发板都要700多RMB，最后还是忍痛出手了一块。由于平时上班比">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="http://yoursite.com/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/1_0.jpg">
+<meta property="og:image" content="http://yoursite.com/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/2_0.jpg">
+<meta property="og:image" content="http://yoursite.com/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/inst_add.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/inst_beq.png">
+<meta property="og:image" content="http://yoursite.com/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/pipeline.jpg">
+<meta property="og:image" content="http://yoursite.com/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/no_bus.jpg">
+<meta property="article:published_time" content="2020-04-29T12:44:58.000Z">
+<meta property="article:modified_time" content="2021-01-31T13:28:36.136Z">
+<meta property="article:author" content="liangkangnan">
+<meta property="article:tag" content="RISC-V">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/1_0.jpg">
+
+<link rel="canonical" href="http://yoursite.com/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true
+  };
+</script>
+
+  <title>从零开始写RISC-V处理器 | liangkangnan的博客</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <div>
+      <a href="/" class="brand" rel="start">
+        <span class="logo-line-before"><i></i></span>
+        <span class="site-title">liangkangnan的博客</span>
+        <span class="logo-line-after"><i></i></span>
+      </a>
+    </div>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+<nav class="site-nav">
+  
+  <ul id="menu" class="menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-fw fa-home"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-fw fa-tags"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-fw fa-th"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-fw fa-archive"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-fw fa-user"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-contact">
+
+    <a href="/contact/" rel="section"><i class="fa fa-fw fa-envelope"></i>联系</a>
+
+  </li>
+  </ul>
+
+</nav>
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+  <a href="https://gitee.com/liangkangnan" class="github-corner" title="Follow me on Gitee" aria-label="Follow me on Gitee" rel="noopener" target="_blank"><svg width="80" height="80" viewBox="0 0 250 250" aria-hidden="true"><path d="M0,0 L115,115 L130,115 L142,142 L250,250 L250,0 Z"></path><path d="M128.3,109.0 C113.8,99.7 119.0,89.6 119.0,89.6 C122.0,82.7 120.5,78.6 120.5,78.6 C119.2,72.0 123.4,76.3 123.4,76.3 C127.3,80.9 125.5,87.3 125.5,87.3 C122.9,97.6 130.6,101.9 134.4,103.2" fill="currentColor" style="transform-origin: 130px 106px;" class="octo-arm"></path><path d="M115.0,115.0 C114.9,115.1 118.7,116.5 119.8,115.4 L133.7,101.6 C136.9,99.2 139.9,98.4 142.2,98.6 C133.8,88.0 127.5,74.4 143.8,58.0 C148.5,53.4 154.0,51.2 159.7,51.0 C160.3,49.4 163.2,43.6 171.4,40.1 C171.4,40.1 176.1,42.5 178.8,56.2 C183.1,58.6 187.2,61.8 190.9,65.4 C194.5,69.0 197.7,73.2 200.1,77.6 C213.8,80.2 216.3,84.9 216.3,84.9 C212.7,93.1 206.9,96.0 205.4,96.6 C205.1,102.4 203.0,107.8 198.3,112.5 C181.9,128.9 168.3,122.5 157.7,114.1 C157.9,116.9 156.7,120.9 152.7,124.9 L141.0,136.5 C139.8,137.7 141.6,141.9 141.8,141.8 Z" fill="currentColor" class="octo-body"></path></svg></a>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content">
+            
+
+  <div class="posts-expand">
+      
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block " lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/me.png">
+      <meta itemprop="name" content="liangkangnan">
+      <meta itemprop="description" content="技术的高低不是取决于你C/C++写得多么牛逼，而是取决于你掌握的资源有多少。">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="liangkangnan的博客">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          从零开始写RISC-V处理器
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-calendar-o"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2020-04-29 20:44:58" itemprop="dateCreated datePublished" datetime="2020-04-29T20:44:58+08:00">2020-04-29</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="fa fa-calendar-check-o"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-01-31 21:28:36" itemprop="dateModified" datetime="2021-01-31T21:28:36+08:00">2021-01-31</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-folder-o"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/RISC-V/" itemprop="url" rel="index"><span itemprop="name">RISC-V</span></a>
+                </span>
+            </span>
+
+          
+            <span class="post-meta-item" title="阅读次数" id="busuanzi_container_page_pv" style="display: none;">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-eye"></i>
+              </span>
+              <span class="post-meta-item-text">阅读次数：</span>
+              <span id="busuanzi_value_page_pv"></span>
+            </span><br>
+            <span class="post-meta-item" title="本文字数">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-file-word-o"></i>
+              </span>
+                <span class="post-meta-item-text">本文字数：</span>
+              <span>60k</span>
+            </span>
+            <span class="post-meta-item" title="阅读时长">
+              <span class="post-meta-item-icon">
+                <i class="fa fa-clock-o"></i>
+              </span>
+                <span class="post-meta-item-text">阅读时长 &asymp;</span>
+              <span>55 分钟</span>
+            </span>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>第一次听到RISC-V这个词大概是两年前，当时觉得它也就是和MIPS这些CPU架构没什么区别，因此也就不以为然了。直到去年，RISC-V这个词开始频繁地出现在微信和其他网站上，此时我再也不能无动于衷了，于是开始在网上搜索有关它的资料，开始知道有SiFive这个网站，知道SiFive出了好几款RISC-V的开发板。可是最便宜的那一块开发板都要700多RMB，最后还是忍痛出手了一块。由于平时上班比较忙，所以玩这块板子的时间并不多，也就是晚上下班后和周末玩玩，自己照着芯片手册写了几个例程在板子上跑跑而已。</p>
+<p>再后来发现网上已经有如何设计RISC-V处理器的书籍卖了，并且这个处理器是开源的，于是果断买了一本来阅读并浏览了它的开源代码，最后表示看不懂。从那之后一个“从零开始写RISC-V处理器”的想法开始不断地出现在我的脑海里。我心里是很想学习、深入研究RISC-V的，但是一直以来都没有verilog和FPGA的基础，可以说是CPU设计领域里的门外汉，再加上很少业余时间，为此一度犹豫不决。但是直觉告诉我已近不能再等了，我决定开始自学verilog和FPGA，用简单易懂的方式写一个RISC-V处理器并且把它开源出来，在提高自身的同时希望能帮助到那些想入门RISC-V的同学，于是tinyriscv终于在2019年12月诞生了。</p>
+<p>tinyriscv是一个采用三级流水线设计，顺序、单发射、单核的32位RISC-V处理器，全部代码都是采用verilog HDL语言编写，核心设计思想是简单、易懂。</p>
+<h1 id="绪论"><a href="#绪论" class="headerlink" title="绪论"></a>绪论</h1><h2 id="RISC-V是什么"><a href="#RISC-V是什么" class="headerlink" title="RISC-V是什么"></a>RISC-V是什么</h2><p>RISC，即精简指令集处理器，是相对于X86这种CISC（复杂指令集处理器）来说的。RISC-V中的V是罗马数字，也即阿拉伯数字中的5，就是指第5代RISC。</p>
+<p>RISC-V是一种指令集架构，和ARM、MIPS这些是属于同一类东西。RISC-V诞生于2010年，最大的特点是开源，任何人都可以设计RISC-V架构的处理器并且不会有任何版权问题。</p>
+<h2 id="既生ARM，何生RISC-V"><a href="#既生ARM，何生RISC-V" class="headerlink" title="既生ARM，何生RISC-V"></a>既生ARM，何生RISC-V</h2><p>ARM是一种很优秀的处理器，这一点是无可否认的，在RISC处理器中是处于绝对老大的地位。但是ARM是闭源的，要设计基于ARM的处理器是要交版权费的，或者说要购买ARM的授权，而且这授权费用是昂贵的。</p>
+<p>RISC-V的诞生并不是偶然的，而是必然的，为什么？且由我从以下两大领域进行说明。</p>
+<p>先看开源软件领域（或者说是操作系统领域），Windows是闭源的，Linux是开源的，Linux有多成功、对开源软件有多重要的意义，这个不用多说了吧。再看手机操作系统领域，iOS是闭源的，Android是开源的，Android有多成功，这个也不用多说了吧。对于RISC处理器领域，由于有了ARM的闭源，必然就会有另外一种开源的RISC处理器。RISC-V之于CPU的意义，就好比Linux之于开源软件的意义。</p>
+<p>或者你会说现在也有好多开源的处理器架构啊，比如MIPS等等，为什么偏偏是RISC-V？这个在这里我就不细说了，我只想说一句：大部分人能看到的机遇不会是一个好的机遇，你懂的。</p>
+<p>可以说未来十年乃至更长时间内不会有比RISC-V更优秀的开源处理器架构出现。错过RISC-V，你注定要错过一个时代。</p>
+<h2 id="浅谈Verilog"><a href="#浅谈Verilog" class="headerlink" title="浅谈Verilog"></a>浅谈Verilog</h2><p>verilog，确切来说应该是verilog HDL(Hardware Description Language )，从它的名字就可以知道这是一种硬件描述语言。首先它是一种语言，和C语言、C++语言一样是一种编程语言，那么verilog描述的是什么硬件呢？描述电阻？描述电容？描述运算放大器？都不是，它描述的是数字电路里的硬件，比如与、非门、触发器、锁存器等等。</p>
+<p>既然是编程语言，那一定会有它的语法，学过C语言的同学再来看verilog得代码，会发现有很多地方是相似的。</p>
+<p>verilog的语法并不难，难的是什么时候该用wire类型，什么时候该用reg类型，什么时候该用assign来描述电路，什么时候该用always来描述电路。assign能描述组合逻辑电路，always也能描述组合逻辑电路，两者有什么区别呢？</p>
+<h2 id="用always描述组合逻辑电路"><a href="#用always描述组合逻辑电路" class="headerlink" title="用always描述组合逻辑电路"></a>用always描述组合逻辑电路</h2><p>我们知道数字电路里有两大类型的电路，一种是组合逻辑电路，另外一种是时序逻辑电路。组合逻辑电路不需要时钟作为触发条件，因此输入会立即(不考虑延时)反映到输出。时序逻辑电路以时钟作为触发条件，时钟的上升沿到来时输入才会反映到输出。</p>
+<p>在verilog中，assign能描述组合逻辑电路，always也能描述组合逻辑电路。对于简单的组合逻辑电路的话两者描述起来都比较好懂、容易理解，但是一旦到了复杂的组合逻辑电路，如果用assign描述的话要么是一大串要么是要用好多个assign，不容易弄明白。但是用always描述起来却是非常容易理解的。</p>
+<p>既然这样，那全部组合逻辑电路都用always来描述好了，呵呵，既然assign存在就有它的合理性。</p>
+<p>用always描述组合逻辑电路时要注意避免产生锁存器，if和case的分支情况要写全。</p>
+<p>在tinyriscv中用了大量的always来描述组合逻辑电路，特别是在译码和执行阶段。</p>
+<h2 id="数字电路设计中的时序问题"><a href="#数字电路设计中的时序问题" class="headerlink" title="数字电路设计中的时序问题"></a>数字电路设计中的时序问题</h2><p>要分析数字电路中的时序问题，就一定要提到以下这个模型。</p>
+<p><img src="/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/1_0.jpg" alt="时序模型"></p>
+<p>其中对时序影响最大的是上图中的组合逻辑电路。所以要避免时序问题，最简单的方法减小组合逻辑电路的延时。组合逻辑电路里的串联级数越多延时就越大，实在没办法减小串联级数时，可以采用流水线的方式将这些级数用触发器隔开。</p>
+<h2 id="流水线设计"><a href="#流水线设计" class="headerlink" title="流水线设计"></a>流水线设计</h2><p>要设计处理器的话，流水线是绕不开的。当然你也可以抬杠说:”用状态机也可以实现处理器啊，不一定要用流水线。”</p>
+<p>采用流水线设计方式，不但可以提高处理器的工作频率，还可以提高处理器的效率。但是流水线并不是越长越好，流水线越长要使用的资源就越多、面积就越大。</p>
+<p>在设计一款处理器之前，首先要确定好所设计的处理器要达到什么样的性能(或者说主频最高是多少)，所使用的资源的上限是多少，功耗范围是多少。如果一味地追求性能而不考虑资源和功耗的话，那么所设计出来的处理器估计就只能用来玩玩，或者做做学术研究。</p>
+<p>tinyriscv采用的是三级流水线，即取指、译码和执行，设计的目标就是要对标ARM的Cortex-M3系列处理器。</p>
+<h2 id="代码风格"><a href="#代码风格" class="headerlink" title="代码风格"></a>代码风格</h2><p>代码风格其实并没有一种标准，但是并不代表代码风格不重要。好的代码风格可以让别人看你的代码时有一种赏心悦目的感觉。哪怕代码只是写给自己看，也一定要养成好的代码风格的习惯。tinyriscv的代码风格在很大程度上沿用了写C语言代码所采用的风格。</p>
+<p>下面介绍tinyriscv的一些主要的代码风格。</p>
+<h3 id="缩进"><a href="#缩进" class="headerlink" title="缩进"></a>缩进</h3><p>统一使用4个空格。</p>
+<h3 id="if语句"><a href="#if语句" class="headerlink" title="if语句"></a>if语句</h3><p>不管if语句下面有多少行语句，if下面的语句都由begin…end包起来，并且begin在if的最后，如下所示：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">if (a &#x3D;&#x3D; 1&#39;b1) begin</span><br><span class="line">    c &lt;&#x3D; b;</span><br><span class="line">end else begin</span><br><span class="line">    c &lt;&#x3D; d;</span><br><span class="line">end</span><br></pre></td></tr></table></figure>
+
+<h3 id="case语句"><a href="#case语句" class="headerlink" title="case语句"></a>case语句</h3><p>对于每一个分支情况，不管有多少行语句，都由begin…end包起来，如下所示：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">case (a)</span><br><span class="line">	c: begin</span><br><span class="line">		e &#x3D; g;</span><br><span class="line">	end</span><br><span class="line">	default: begin</span><br><span class="line">		b &#x3D; t;</span><br><span class="line">	end</span><br><span class="line">endcase</span><br></pre></td></tr></table></figure>
+
+<h3 id="always语句"><a href="#always语句" class="headerlink" title="always语句"></a>always语句</h3><p>always语句后跟begin，如下所示：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">always @ (posedge clk) begin</span><br><span class="line">    a &lt;&#x3D; b;</span><br><span class="line">end</span><br></pre></td></tr></table></figure>
+
+<h3 id="其他"><a href="#其他" class="headerlink" title="其他"></a>其他</h3><p>=、==、&lt;=、&gt;=、+、-、*、/、@等符号左右各有一个空格。</p>
+<p>,和:符号后面有一个空格。</p>
+<p>对于模块的输入信号，不省略wire关键字。</p>
+<p>每个文件的最后留一行空行。</p>
+<p>if、case、always后面都有一个空格。</p>
+<h1 id="硬件篇"><a href="#硬件篇" class="headerlink" title="硬件篇"></a>硬件篇</h1><p>硬件篇主要介绍tinyriscv的verilog代码设计。</p>
+<p>tinyriscv整体框架如图2_1所示。</p>
+<p><img src="/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/2_0.jpg" alt></p>
+<p>图2_1 tinyriscv整体框架</p>
+<p>可见目前tinyriscv已经不仅仅是一个内核了，而是一个小型的SOC，包含一些简单的外设，如timer、uart_tx等。</p>
+<p>tinyriscv SOC输入输出信号有两部分，一部分是系统时钟clk和复位信号rst，另一部分是JTAG调试信号，TCK、TMS、TDI和TDO。</p>
+<p>上图中的小方框表示一个个模块，方框里面的文字表示模块的名字，箭头则表示模块与模块之间的的输入输出关系。</p>
+<p>下面简单介绍每个模块的主要作用。</p>
+<p>jtag_top：调试模块的顶层模块，主要有三大类型的信号，第一种是读写内存的信号，第二种是读写寄存器的信号，第三种是控制信号，比如复位MCU，暂停MCU等。</p>
+<p>pc_reg：PC寄存器模块，用于产生PC寄存器的值，该值会被用作指令存储器的地址信号。</p>
+<p>if_id：取指到译码之间的模块，用于将指令存储器输出的指令打一拍后送到译码模块。</p>
+<p>id：译码模块，纯组合逻辑电路，根据if_id模块送进来的指令进行译码。当译码出具体的指令(比如add指令)后，产生是否写寄存器信号，读寄存器信号等。由于寄存器采用的是异步读方式，因此只要送出读寄存器信号后，会马上得到对应的寄存器数据，这个数据会和写寄存器信号一起送到id_ex模块。</p>
+<p>id_ex：译码到执行之间的模块，用于将是否写寄存器的信号和寄存器数据打一拍后送到执行模块。</p>
+<p>ex：执行模块，纯组合逻辑电路，根据具体的指令进行相应的操作，比如add指令就执行加法操作等。此外，如果是lw等访存指令的话，则会进行读内存操作，读内存也是采用异步读方式。最后将是否需要写寄存器、写寄存器地址，写寄存器数据信号送给regs模块，将是否需要写内存、写内存地址、写内存数据信号送给rib总线，由总线来分配访问的模块。</p>
+<p>div：除法模块，采用试商法实现，因此至少需要32个时钟才能完成一次除法操作。</p>
+<p>ctrl：控制模块，产生暂停流水线、跳转等控制信号。</p>
+<p>clint：核心本地中断模块，对输入的中断请求信号进行总裁，产生最终的中断信号。</p>
+<p>rom：程序存储器模块，用于存储程序(bin)文件。</p>
+<p>ram：数据存储器模块，用于存储程序中的数据。</p>
+<p>timer：定时器模块，用于计时和产生定时中断信号。目前支持RTOS时需要用到该定时器。</p>
+<p>uart_tx：串口发送模块，主要用于调试打印。</p>
+<p>gpio：简单的IO口模块，主要用于点灯调试。</p>
+<p>spi：目前只有master角色，用于访问spi从机，比如spi norflash。</p>
+<h2 id="PC寄存器"><a href="#PC寄存器" class="headerlink" title="PC寄存器"></a>PC寄存器</h2><p>PC寄存器模块所在的源文件：rtl/core/pc_reg.v</p>
+<p>PC寄存器模块的输入输出信号如下表所示：</p>
+<table>
+<thead>
+<tr>
+<th align="center">序号</th>
+<th align="center">信号名</th>
+<th align="center">输入/输出</th>
+<th align="center">位宽(bits)</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">1</td>
+<td align="center">clk</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">时钟输入信号</td>
+</tr>
+<tr>
+<td align="center">2</td>
+<td align="center">rst</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">复位输入信号</td>
+</tr>
+<tr>
+<td align="center">3</td>
+<td align="center">jump_flag_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">跳转标志</td>
+</tr>
+<tr>
+<td align="center">4</td>
+<td align="center">jump_addr_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">跳转地址，即跳转到该地址</td>
+</tr>
+<tr>
+<td align="center">5</td>
+<td align="center">hold_flag_i</td>
+<td align="center">输入</td>
+<td align="center">3</td>
+<td align="center">暂停标志，即PC寄存器的值保持不变</td>
+</tr>
+<tr>
+<td align="center">6</td>
+<td align="center">jtag_reset_flag_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">复位标志，即设置为复位后的值</td>
+</tr>
+<tr>
+<td align="center">7</td>
+<td align="center">pc_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">PC寄存器值，即从该值处取指</td>
+</tr>
+</tbody></table>
+<p>PC寄存器模块代码比较简单，直接贴出来：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">always @ (posedge clk) begin</span><br><span class="line">    &#x2F;&#x2F; 复位</span><br><span class="line">    if (rst &#x3D;&#x3D; &#96;RstEnable || jtag_reset_flag_i &#x3D;&#x3D; 1&#39;b1) begin</span><br><span class="line">        pc_o &lt;&#x3D; &#96;CpuResetAddr;</span><br><span class="line">    &#x2F;&#x2F; 跳转</span><br><span class="line">    end else if (jump_flag_i &#x3D;&#x3D; &#96;JumpEnable) begin</span><br><span class="line">        pc_o &lt;&#x3D; jump_addr_i;</span><br><span class="line">    &#x2F;&#x2F; 暂停</span><br><span class="line">    end else if (hold_flag_i &gt;&#x3D; &#96;Hold_Pc) begin</span><br><span class="line">        pc_o &lt;&#x3D; pc_o;</span><br><span class="line">    &#x2F;&#x2F; 地址加4</span><br><span class="line">    end else begin</span><br><span class="line">        pc_o &lt;&#x3D; pc_o + 4&#39;h4;</span><br><span class="line">    end</span><br><span class="line">end</span><br></pre></td></tr></table></figure>
+
+<p>第3行，PC寄存器的值恢复到原始值(复位后的值)有两种方式，第一种不用说了，就是复位信号有效。第二种是收到jtag模块发过来的复位信号。PC寄存器复位后的值为CpuResetAddr，即32’h0，可以通过改变CpuResetAddr的值来改变PC寄存器的复位值。</p>
+<p>第6行，判断跳转标志是否有效，如果有效则直接将PC寄存器的值设置为jump_addr_i的值。因此可以知道，所谓的跳转就是改变PC寄存器的值，从而使CPU从该跳转地址开始取指。</p>
+<p>第9行，判断暂停标志是否大于等于Hold_Pc，该值为3’b001。如果是，则保持PC寄存器的值不变。这里可能会有疑问，为什么Hold_Pc的值不是一个1bit的信号。因为这个暂停标志还会被if_id和id_ex模块使用，如果仅仅需要暂停PC寄存器的话，那么if_id模块和id_ex模块是不需要暂停的。当需要暂停if_id模块时，PC寄存器也会同时被暂停。当需要暂停id_ex模块时，那么整条流水线都会被暂停。</p>
+<p>第13行，将PC寄存器的值加4。在这里可以知道，tinyriscv的取指地址是4字节对齐的，每条指令都是32位的。</p>
+<h2 id="通用寄存器"><a href="#通用寄存器" class="headerlink" title="通用寄存器"></a>通用寄存器</h2><p>通用寄存器模块所在的源文件：rtl/core/regs.v</p>
+<p>一共有32个通用寄存器x0~x31，其中寄存器x0是只读寄存器并且其值固定为0。</p>
+<p>通用寄存器的输入输出信号如下表所示：</p>
+<table>
+<thead>
+<tr>
+<th align="center">序号</th>
+<th align="center">信号名</th>
+<th align="center">输入/输出</th>
+<th align="center">位宽(bits)</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">1</td>
+<td align="center">clk</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">时钟输入</td>
+</tr>
+<tr>
+<td align="center">2</td>
+<td align="center">rst</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">复位输入</td>
+</tr>
+<tr>
+<td align="center">3</td>
+<td align="center">we_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">来自执行模块的写使能</td>
+</tr>
+<tr>
+<td align="center">4</td>
+<td align="center">waddr_i</td>
+<td align="center">输入</td>
+<td align="center">5</td>
+<td align="center">来自执行模块的写地址</td>
+</tr>
+<tr>
+<td align="center">5</td>
+<td align="center">wdata_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">来自执行模块的写数据</td>
+</tr>
+<tr>
+<td align="center">6</td>
+<td align="center">jtag_we_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">来自jtag模块的写使能</td>
+</tr>
+<tr>
+<td align="center">7</td>
+<td align="center">jtag_addr_i</td>
+<td align="center">输入</td>
+<td align="center">5</td>
+<td align="center">来自jtag模块的写地址</td>
+</tr>
+<tr>
+<td align="center">8</td>
+<td align="center">jtag_data_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">来自jtag模块的写数据</td>
+</tr>
+<tr>
+<td align="center">9</td>
+<td align="center">raddr1_i</td>
+<td align="center">输入</td>
+<td align="center">5</td>
+<td align="center">来自译码模块的寄存器1读地址</td>
+</tr>
+<tr>
+<td align="center">10</td>
+<td align="center">rdata1_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">寄存器1读数据</td>
+</tr>
+<tr>
+<td align="center">11</td>
+<td align="center">raddr2_i</td>
+<td align="center">输入</td>
+<td align="center">5</td>
+<td align="center">来自译码模块的寄存器2读地址</td>
+</tr>
+<tr>
+<td align="center">12</td>
+<td align="center">rdata2_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">寄存器2读数据</td>
+</tr>
+<tr>
+<td align="center">13</td>
+<td align="center">jtag_data_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">jtag读数据</td>
+</tr>
+</tbody></table>
+<p>注意，这里的寄存器1不是指x1寄存器，寄存器2也不是指x2寄存器。而是指一条指令里涉及到的两个寄存器(源寄存器1和源寄存器2)。一条指令可能会同时读取两个寄存器的值，所以有两个读端口。又因为jtag模块也会进行寄存器的读操作，所以一共有三个读端口。</p>
+<p>读寄存器操作来自译码模块，并且读出来的寄存器数据也会返回给译码模块。写寄存器操作来自执行模块。</p>
+<p>先看读操作的代码，如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 读寄存器1</span><br><span class="line">always @ (*) begin</span><br><span class="line">    if (rst &#x3D;&#x3D; &#96;RstEnable) begin</span><br><span class="line">        rdata1_o &#x3D; &#96;ZeroWord;</span><br><span class="line">    end else if (raddr1_i &#x3D;&#x3D; &#96;RegNumLog2&#39;h0) begin</span><br><span class="line">        rdata1_o &#x3D; &#96;ZeroWord;</span><br><span class="line">    &#x2F;&#x2F; 如果读地址等于写地址，并且正在写操作，则直接返回写数据</span><br><span class="line">    end else if (raddr1_i &#x3D;&#x3D; waddr_i &amp;&amp; we_i &#x3D;&#x3D; &#96;WriteEnable) begin</span><br><span class="line">        rdata1_o &#x3D; wdata_i;</span><br><span class="line">    end else begin</span><br><span class="line">        rdata1_o &#x3D; regs[raddr1_i];</span><br><span class="line">    end</span><br><span class="line">end</span><br><span class="line"></span><br><span class="line">&#x2F;&#x2F; 读寄存器2</span><br><span class="line">always @ (*) begin</span><br><span class="line">    if (rst &#x3D;&#x3D; &#96;RstEnable) begin</span><br><span class="line">        rdata2_o &#x3D; &#96;ZeroWord;</span><br><span class="line">    end else if (raddr2_i &#x3D;&#x3D; &#96;RegNumLog2&#39;h0) begin</span><br><span class="line">        rdata2_o &#x3D; &#96;ZeroWord;</span><br><span class="line">    &#x2F;&#x2F; 如果读地址等于写地址，并且正在写操作，则直接返回写数据</span><br><span class="line">    end else if (raddr2_i &#x3D;&#x3D; waddr_i &amp;&amp; we_i &#x3D;&#x3D; &#96;WriteEnable) begin</span><br><span class="line">        rdata2_o &#x3D; wdata_i;</span><br><span class="line">    end else begin</span><br><span class="line">        rdata2_o &#x3D; regs[raddr2_i];</span><br><span class="line">    end</span><br><span class="line">end</span><br></pre></td></tr></table></figure>
+
+<p>可以看到两个寄存器的读操作几乎是一样的。因此在这里只解析读寄存器1那部分代码。</p>
+<p>第5行，如果是读寄存器0(x0)，那么直接返回0就可以了。</p>
+<p>第8行，这涉及到数据相关问题。由于流水线的原因，当前指令处于执行阶段的时候，下一条指令则处于译码阶段。由于执行阶段不会写寄存器，而是在下一个时钟到来时才会进行寄存器写操作，如果译码阶段的指令需要上一条指令的结果，那么此时读到的寄存器的值是错误的。比如下面这两条指令：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">add x1, x2, x3</span><br><span class="line">add x4, x1, x5</span><br></pre></td></tr></table></figure>
+
+<p>第二条指令依赖于第一条指令的结果。为了解决这个数据相关的问题就有了第8~9行的操作，即如果读寄存器等于写寄存器，则直接将要写的值返回给读操作。</p>
+<p>第11行，如果没有数据相关，则返回要读的寄存器的值。</p>
+<p>下面看写寄存器操作，代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">&#x2F;&#x2F; 写寄存器</span><br><span class="line">always @ (posedge clk) begin</span><br><span class="line">    if (rst &#x3D;&#x3D; &#96;RstDisable) begin</span><br><span class="line">        &#x2F;&#x2F; 优先ex模块写操作</span><br><span class="line">        if ((we_i &#x3D;&#x3D; &#96;WriteEnable) &amp;&amp; (waddr_i !&#x3D; &#96;RegNumLog2&#39;h0)) begin</span><br><span class="line">            regs[waddr_i] &lt;&#x3D; wdata_i;</span><br><span class="line">        end else if ((jtag_we_i &#x3D;&#x3D; &#96;WriteEnable) &amp;&amp; (jtag_addr_i !&#x3D; &#96;RegNumLog2&#39;h0)) begin</span><br><span class="line">            regs[jtag_addr_i] &lt;&#x3D; jtag_data_i;</span><br><span class="line">        end</span><br><span class="line">    end</span><br><span class="line">end</span><br></pre></td></tr></table></figure>
+
+<p>第5~6行，如果执行模块写使能并且要写的寄存器不是x0寄存器，则将要写的值写到对应的寄存器。</p>
+<p>第7~8行，jtag模块的写操作。</p>
+<p>CSR寄存器模块(csr_reg.v)和通用寄存器模块的读、写操作是类似的，这里就不重复了。</p>
+<h2 id="取指"><a href="#取指" class="headerlink" title="取指"></a>取指</h2><p><strong>目前tinyriscv所有外设(包括rom和ram)、寄存器的读取都是与时钟无关的，或者说所有外设、寄存器的读取采用的是组合逻辑的方式</strong>。这一点非常重要!</p>
+<p>tinyriscv并没有具体的取指模块和代码。PC寄存器模块的输出pc_o会连接到外设rom模块的地址输入，又由于rom的读取是组合逻辑，因此每一个时钟上升沿到来之前(时序是满足要求的)，从rom输出的指令已经稳定在if_id模块的输入，当时钟上升沿到来时指令就会输出到id模块。</p>
+<p>取到的指令和指令地址会输入到if_id模块(if_id.v)，if_id模块是一个时序电路，作用是将输入的信号打一拍后再输出到译码(id.v)模块。</p>
+<h2 id="译码"><a href="#译码" class="headerlink" title="译码"></a>译码</h2><p>译码模块所在的源文件：rtl/core/id.v</p>
+<p>译码(id)模块是一个纯组合逻辑电路，主要作用有以下几点：</p>
+<p>1.根据指令内容，解析出当前具体是哪一条指令(比如add指令)。</p>
+<p>2.根据具体的指令，确定当前指令涉及的寄存器。比如读寄存器是一个还是两个，是否需要写寄存器以及写哪一个寄存器。</p>
+<p>3.访问通用寄存器，得到要读的寄存器的值。</p>
+<p>译码模块的输入输出信号如下表所示：</p>
+<table>
+<thead>
+<tr>
+<th align="center">序号</th>
+<th align="center">信号名</th>
+<th align="center">输入/输出</th>
+<th align="center">位宽(bits)</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">1</td>
+<td align="center">rst</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">复位信号</td>
+</tr>
+<tr>
+<td align="center">2</td>
+<td align="center">inst_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">指令内容</td>
+</tr>
+<tr>
+<td align="center">3</td>
+<td align="center">inst_addr_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">指令地址</td>
+</tr>
+<tr>
+<td align="center">4</td>
+<td align="center">reg1_rdata_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">寄存器1输入数据</td>
+</tr>
+<tr>
+<td align="center">5</td>
+<td align="center">reg2_rdata_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">寄存器2输入数据</td>
+</tr>
+<tr>
+<td align="center">6</td>
+<td align="center">csr_rdata_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">CSR寄存器输入数据</td>
+</tr>
+<tr>
+<td align="center">7</td>
+<td align="center">ex_jump_flag_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">跳转信号</td>
+</tr>
+<tr>
+<td align="center">8</td>
+<td align="center">reg1_raddr_o</td>
+<td align="center">输出</td>
+<td align="center">5</td>
+<td align="center">读寄存器1地址，即读哪一个通用寄存器</td>
+</tr>
+<tr>
+<td align="center">9</td>
+<td align="center">reg2_raddr_o</td>
+<td align="center">输出</td>
+<td align="center">5</td>
+<td align="center">读寄存器2地址，即读哪一个通用寄存器</td>
+</tr>
+<tr>
+<td align="center">10</td>
+<td align="center">csr_raddr_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">读csr寄存器地址，即读哪一个CSR寄存器</td>
+</tr>
+<tr>
+<td align="center">11</td>
+<td align="center">mem_req_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">向总线请求访问内存信号</td>
+</tr>
+<tr>
+<td align="center">12</td>
+<td align="center">inst_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">指令内容</td>
+</tr>
+<tr>
+<td align="center">13</td>
+<td align="center">inst_addr_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">指令地址</td>
+</tr>
+<tr>
+<td align="center">14</td>
+<td align="center">reg1_rdata_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">通用寄存器1数据</td>
+</tr>
+<tr>
+<td align="center">15</td>
+<td align="center">reg2_rdata_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">通用寄存器2数据</td>
+</tr>
+<tr>
+<td align="center">16</td>
+<td align="center">reg_we_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">通用寄存器写使能</td>
+</tr>
+<tr>
+<td align="center">17</td>
+<td align="center">reg_waddr_o</td>
+<td align="center">输出</td>
+<td align="center">5</td>
+<td align="center">通用寄存器写地址，即写哪一个通用寄存器</td>
+</tr>
+<tr>
+<td align="center">18</td>
+<td align="center">csr_we_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">CSR寄存器写使能</td>
+</tr>
+<tr>
+<td align="center">19</td>
+<td align="center">csr_rdata_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">CSR寄存器读数据</td>
+</tr>
+<tr>
+<td align="center">20</td>
+<td align="center">csr_waddr_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">CSR寄存器写地址，即写哪一个CSR寄存器</td>
+</tr>
+</tbody></table>
+<p>以add指令为例来说明如何译码。下图是add指令的编码格式：</p>
+<p><img src="/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/inst_add.png" alt="add"></p>
+<p>可知，add指令被编码成6部分内容。通过第1、4、6这三部分可以唯一确定当前指令是否是add指令。知道是add指令之后，就可以知道add指令需要读两个通用寄存器(rs1和rs2)和写一个通用寄存器(rd)。下面看具体的代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">case (opcode)</span><br><span class="line">...</span><br><span class="line">    &#96;INST_TYPE_R_M: begin</span><br><span class="line">        if ((funct7 &#x3D;&#x3D; 7&#39;b0000000) || (funct7 &#x3D;&#x3D; 7&#39;b0100000)) begin</span><br><span class="line">            case (funct3)</span><br><span class="line">                &#96;INST_ADD_SUB, &#96;INST_SLL, &#96;INST_SLT, &#96;INST_SLTU, &#96;INST_XOR, &#96;INST_SR, &#96;INST_OR, &#96;INST_AND: begin</span><br><span class="line">                     reg_we_o &#x3D; &#96;WriteEnable;</span><br><span class="line">                     reg_waddr_o &#x3D; rd;</span><br><span class="line">                     reg1_raddr_o &#x3D; rs1;</span><br><span class="line">                     reg2_raddr_o &#x3D; rs2;</span><br><span class="line">                 end</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>第1行，opcode就是指令编码中的第6部分内容。</p>
+<p>第3行，`INST_TYPE_R_M的值为7’b0110011。</p>
+<p>第4行，funct7是指指令编码中的第1部分内容。</p>
+<p>第5行，funct3是指指令编码中的第4部分内容。</p>
+<p>第6行，到了这里，第1、4、6这三部分已经译码完毕，已经可以确定当前指令是add指令了。</p>
+<p>第7行，设置写寄存器标志为1，表示执行模块结束后的下一个时钟需要写寄存器。</p>
+<p>第8行，设置写寄存器地址为rd，rd的值为指令编码里的第5部分内容。</p>
+<p>第9行，设置读寄存器1的地址为rs1，rs1的值为指令编码里的第3部分内容。</p>
+<p>第10行，设置读寄存器2的地址为rs2，rs2的值为指令编码里的第2部分内容。</p>
+<p>其他指令的译码过程是类似的，这里就不重复了。译码模块看起来代码很多，但是大部分代码都是类似的。</p>
+<p>译码模块还有个作用是当指令为加载内存指令(比如lw等)时，向总线发出请求访问内存的信号。这部分内容将在总线一节再分析。</p>
+<p>译码模块的输出会送到id_ex模块(id_ex.v)的输入，id_ex模块是一个时序电路，作用是将输入的信号打一拍后再输出到执行模块(ex.v)。</p>
+<h2 id="执行"><a href="#执行" class="headerlink" title="执行"></a>执行</h2><p>执行模块所在的源文件：rtl/core/ex.v</p>
+<p>执行(ex)模块是一个纯组合逻辑电路，主要作用有以下几点：</p>
+<p>1.根据当前是什么指令执行对应的操作，比如add指令，则将寄存器1的值和寄存器2的值相加。</p>
+<p>2.如果是内存加载指令，则读取对应地址的内存数据。</p>
+<p>3.如果是跳转指令，则发出跳转信号。</p>
+<p>执行模块的输入输出信号如下表所示：</p>
+<table>
+<thead>
+<tr>
+<th align="center">序号</th>
+<th align="center">信号名</th>
+<th align="center">输入/输出</th>
+<th align="center">位宽(bits)</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">1</td>
+<td align="center">rst</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">复位信号</td>
+</tr>
+<tr>
+<td align="center">2</td>
+<td align="center">inst_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">指令内容</td>
+</tr>
+<tr>
+<td align="center">3</td>
+<td align="center">inst_addr_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">指令地址</td>
+</tr>
+<tr>
+<td align="center">4</td>
+<td align="center">reg_we_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">寄存器写使能</td>
+</tr>
+<tr>
+<td align="center">5</td>
+<td align="center">reg_waddr_i</td>
+<td align="center">输入</td>
+<td align="center">5</td>
+<td align="center">通用寄存器写地址，即写哪一个通用寄存器</td>
+</tr>
+<tr>
+<td align="center">6</td>
+<td align="center">reg1_rdata_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">通用寄存器1读数据</td>
+</tr>
+<tr>
+<td align="center">7</td>
+<td align="center">reg2_rdata_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">通用寄存器2读数据</td>
+</tr>
+<tr>
+<td align="center">8</td>
+<td align="center">csr_we_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">CSR寄存器写使能</td>
+</tr>
+<tr>
+<td align="center">9</td>
+<td align="center">csr_waddr_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">CSR寄存器写地址，即写哪一个CSR寄存器</td>
+</tr>
+<tr>
+<td align="center">10</td>
+<td align="center">csr_rdata_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">CSR寄存器读数据</td>
+</tr>
+<tr>
+<td align="center">11</td>
+<td align="center">int_assert_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">中断信号</td>
+</tr>
+<tr>
+<td align="center">12</td>
+<td align="center">int_addr_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">中断跳转地址，即中断发生后跳转到哪个地址</td>
+</tr>
+<tr>
+<td align="center">13</td>
+<td align="center">mem_rdata_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">内存读数据</td>
+</tr>
+<tr>
+<td align="center">14</td>
+<td align="center">div_ready_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">除法模块是否准备好信号，即是否可以进行除法运算</td>
+</tr>
+<tr>
+<td align="center">15</td>
+<td align="center">div_result_i</td>
+<td align="center">输入</td>
+<td align="center">64</td>
+<td align="center">除法结果</td>
+</tr>
+<tr>
+<td align="center">16</td>
+<td align="center">div_busy_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">除法模块忙信号，即正在进行除法运算</td>
+</tr>
+<tr>
+<td align="center">17</td>
+<td align="center">div_op_i</td>
+<td align="center">输入</td>
+<td align="center">3</td>
+<td align="center">具体的除法运算，即DIV、DIVU、REM和REMU中的哪一种</td>
+</tr>
+<tr>
+<td align="center">18</td>
+<td align="center">div_reg_waddr_i</td>
+<td align="center">输入</td>
+<td align="center">5</td>
+<td align="center">除法运算完成后要写的通用寄存器地址</td>
+</tr>
+<tr>
+<td align="center">19</td>
+<td align="center">mem_wdata_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">内存写数据</td>
+</tr>
+<tr>
+<td align="center">20</td>
+<td align="center">mem_raddr_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">内存读地址</td>
+</tr>
+<tr>
+<td align="center">21</td>
+<td align="center">mem_waddr_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">内存写地址</td>
+</tr>
+<tr>
+<td align="center">22</td>
+<td align="center">mem_we_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">内存写使能</td>
+</tr>
+<tr>
+<td align="center">23</td>
+<td align="center">mem_req_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">请求访问内存信号</td>
+</tr>
+<tr>
+<td align="center">24</td>
+<td align="center">reg_wdata_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">通用寄存器写数据</td>
+</tr>
+<tr>
+<td align="center">25</td>
+<td align="center">reg_we_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">通用寄存器写使能</td>
+</tr>
+<tr>
+<td align="center">26</td>
+<td align="center">reg_waddr_o</td>
+<td align="center">输出</td>
+<td align="center">5</td>
+<td align="center">通用寄存器写地址</td>
+</tr>
+<tr>
+<td align="center">27</td>
+<td align="center">csr_wdata_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">CSR寄存器写数据</td>
+</tr>
+<tr>
+<td align="center">28</td>
+<td align="center">csr_we_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">CSR寄存器写使能</td>
+</tr>
+<tr>
+<td align="center">29</td>
+<td align="center">csr_waddr_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">CSR寄存器写地址，即写哪一个CSR寄存器</td>
+</tr>
+<tr>
+<td align="center">30</td>
+<td align="center">div_start_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">开始除法运算</td>
+</tr>
+<tr>
+<td align="center">31</td>
+<td align="center">div_dividend_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">除法运算中的被除数</td>
+</tr>
+<tr>
+<td align="center">32</td>
+<td align="center">div_divisor_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">除法运算中的除数</td>
+</tr>
+<tr>
+<td align="center">33</td>
+<td align="center">div_op_o</td>
+<td align="center">输出</td>
+<td align="center">3</td>
+<td align="center">具体的除法运算，即DIV、DIVU、REM和REMU中的哪一种</td>
+</tr>
+<tr>
+<td align="center">34</td>
+<td align="center">div_reg_waddr_o</td>
+<td align="center">输出</td>
+<td align="center">5</td>
+<td align="center">除法运算完成后要写的通用寄存器地址</td>
+</tr>
+<tr>
+<td align="center">35</td>
+<td align="center">hold_flag_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">暂停流水线信号</td>
+</tr>
+<tr>
+<td align="center">36</td>
+<td align="center">jump_flag_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">跳转信号</td>
+</tr>
+<tr>
+<td align="center">37</td>
+<td align="center">jump_addr_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">跳转地址</td>
+</tr>
+</tbody></table>
+<p>下面以add指令为例说明，add指令的作用就是将寄存器1的值和寄存器2的值相加，最后将结果写入目的寄存器。代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">&#96;INST_TYPE_R_M: begin</span><br><span class="line">     if ((funct7 &#x3D;&#x3D; 7&#39;b0000000) || (funct7 &#x3D;&#x3D; 7&#39;b0100000)) begin</span><br><span class="line">         case (funct3)</span><br><span class="line">             &#96;INST_ADD_SUB: begin</span><br><span class="line">                 jump_flag &#x3D; &#96;JumpDisable;</span><br><span class="line">                 hold_flag &#x3D; &#96;HoldDisable;</span><br><span class="line">                 jump_addr &#x3D; &#96;ZeroWord;</span><br><span class="line">                 mem_wdata_o &#x3D; &#96;ZeroWord;</span><br><span class="line">                 mem_raddr_o &#x3D; &#96;ZeroWord;</span><br><span class="line">                 mem_waddr_o &#x3D; &#96;ZeroWord;</span><br><span class="line">                 mem_we &#x3D; &#96;WriteDisable;</span><br><span class="line">                 if (inst_i[30] &#x3D;&#x3D; 1&#39;b0) begin</span><br><span class="line">                     reg_wdata &#x3D; reg1_rdata_i + reg2_rdata_i;</span><br><span class="line">                 end else begin</span><br><span class="line">                     reg_wdata &#x3D; reg1_rdata_i - reg2_rdata_i;</span><br><span class="line">                 end</span><br><span class="line">        ...</span><br><span class="line">     end</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>第2~4行，译码操作。</p>
+<p>第5行，对add或sub指令进行处理。</p>
+<p>第6~12行，当前指令不涉及到的操作(比如跳转、写内存等)需要将其置回默认值。</p>
+<p>第13行，指令编码中的第30位区分是add指令还是sub指令。0表示add指令，1表示sub指令。</p>
+<p>第14行，执行加法操作。</p>
+<p>第16行，执行减法操作。</p>
+<p>其他指令的执行是类似的，需要注意的是没有涉及的信号要将其置为默认值，if和case情况要写全，避免产生锁存器。</p>
+<p>下面以beq指令说明跳转指令的执行。beq指令的编码如下：</p>
+<p><img src="/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/inst_beq.png" alt="beq"></p>
+<p>beq指令的作用就是当寄存器1的值和寄存器2的值相等时发生跳转，跳转的目的地址为当前指令的地址加上符号扩展的imm的值。具体代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">&#96;INST_TYPE_B: begin</span><br><span class="line">    case (funct3)</span><br><span class="line">        &#96;INST_BEQ: begin</span><br><span class="line">            hold_flag &#x3D; &#96;HoldDisable;</span><br><span class="line">            mem_wdata_o &#x3D; &#96;ZeroWord;</span><br><span class="line">            mem_raddr_o &#x3D; &#96;ZeroWord;</span><br><span class="line">            mem_waddr_o &#x3D; &#96;ZeroWord;</span><br><span class="line">            mem_we &#x3D; &#96;WriteDisable;</span><br><span class="line">            reg_wdata &#x3D; &#96;ZeroWord;</span><br><span class="line">            if (reg1_rdata_i &#x3D;&#x3D; reg2_rdata_i) begin</span><br><span class="line">                jump_flag &#x3D; &#96;JumpEnable;</span><br><span class="line">                jump_addr &#x3D; inst_addr_i + &#123;&#123;20&#123;inst_i[31]&#125;&#125;, inst_i[7], inst_i[30:25], inst_i[11:8], 1&#39;b0&#125;;</span><br><span class="line">            end else begin</span><br><span class="line">                jump_flag &#x3D; &#96;JumpDisable;</span><br><span class="line">                jump_addr &#x3D; &#96;ZeroWord;</span><br><span class="line">            end</span><br><span class="line">    ...</span><br><span class="line">end</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>第2~4行，译码出beq指令。</p>
+<p>第5~10行，没有涉及的信号置为默认值。</p>
+<p>第11行，判断寄存器1的值是否等于寄存器2的值。</p>
+<p>第12行，跳转使能，即发生跳转。</p>
+<p>第13行，计算出跳转的目的地址。</p>
+<p>第15、16行，不发生跳转。</p>
+<p>其他跳转指令的执行是类似的，这里就不再重复了。</p>
+<h2 id="访存"><a href="#访存" class="headerlink" title="访存"></a>访存</h2><p>由于tinyriscv只有三级流水线，因此没有访存这个阶段，访存的操作放在了执行模块中。具体是这样的，在译码阶段如果识别出是内存访问指令(lb、lh、lw、lbu、lhu、sb、sh、sw)，则向总线发出内存访问请求，具体代码(位于id.v)如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">&#96;INST_TYPE_L: begin</span><br><span class="line">    case (funct3)</span><br><span class="line">        &#96;INST_LB, &#96;INST_LH, &#96;INST_LW, &#96;INST_LBU, &#96;INST_LHU: begin</span><br><span class="line">            reg1_raddr_o &#x3D; rs1;</span><br><span class="line">            reg2_raddr_o &#x3D; &#96;ZeroReg;</span><br><span class="line">            reg_we_o &#x3D; &#96;WriteEnable;</span><br><span class="line">            reg_waddr_o &#x3D; rd;</span><br><span class="line">            mem_req &#x3D; &#96;RIB_REQ;</span><br><span class="line">         end</span><br><span class="line">         default: begin</span><br><span class="line">            reg1_raddr_o &#x3D; &#96;ZeroReg;</span><br><span class="line">            reg2_raddr_o &#x3D; &#96;ZeroReg;</span><br><span class="line">            reg_we_o &#x3D; &#96;WriteDisable;</span><br><span class="line">            reg_waddr_o &#x3D; &#96;ZeroReg;</span><br><span class="line">         end</span><br><span class="line">    endcase</span><br><span class="line">end</span><br><span class="line">&#96;INST_TYPE_S: begin</span><br><span class="line">    case (funct3)</span><br><span class="line">    	&#96;INST_SB, &#96;INST_SW, &#96;INST_SH: begin</span><br><span class="line">        	reg1_raddr_o &#x3D; rs1;</span><br><span class="line">            reg2_raddr_o &#x3D; rs2;</span><br><span class="line">            reg_we_o &#x3D; &#96;WriteDisable;</span><br><span class="line">            reg_waddr_o &#x3D; &#96;ZeroReg;</span><br><span class="line">            mem_req &#x3D; &#96;RIB_REQ;</span><br><span class="line"> 	end</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>第2~4行，译码出内存加载指令，lb、lh、lw、lbu、lhu。</p>
+<p>第5行，需要读寄存器1。</p>
+<p>第6行，不需要读寄存器2。</p>
+<p>第7行，写目的寄存器使能。</p>
+<p>第8行，写目的寄存器的地址，即写哪一个通用寄存器。</p>
+<p>第9行，发出访问内存请求。</p>
+<p>第19~21行，译码出内存存储指令，sb、sw、sh。</p>
+<p>第22行，需要读寄存器1。</p>
+<p>第23行，需要读寄存器2。</p>
+<p>第24行，不需要写目的寄存器。</p>
+<p>第26行，发出访问内存请求。</p>
+<p>问题来了，为什么在取指阶段发出内存访问请求？这跟总线的设计是相关的，这里先不具体介绍总线的设计，只需要知道如果需要访问内存，则需要提前一个时钟向总线发出请求。</p>
+<p>在译码阶段向总线发出内存访问请求后，在执行阶段就会得到对应的内存数据。</p>
+<p>下面看执行阶段的内存加载操作，以lb指令为例，lb指令的作用是访问内存中的某一个字节，代码(位于ex.v)如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">&#96;INST_TYPE_L: begin</span><br><span class="line">	case (funct3)</span><br><span class="line">		&#96;INST_LB: begin</span><br><span class="line">        	jump_flag &#x3D; &#96;JumpDisable;</span><br><span class="line">        	hold_flag &#x3D; &#96;HoldDisable;</span><br><span class="line">        	jump_addr &#x3D; &#96;ZeroWord;</span><br><span class="line">        	mem_wdata_o &#x3D; &#96;ZeroWord;</span><br><span class="line">        	mem_waddr_o &#x3D; &#96;ZeroWord;</span><br><span class="line">            mem_we &#x3D; &#96;WriteDisable;</span><br><span class="line">            mem_raddr_o &#x3D; reg1_rdata_i + &#123;&#123;20&#123;inst_i[31]&#125;&#125;, inst_i[31:20]&#125;;</span><br><span class="line">            case (mem_raddr_index)</span><br><span class="line">            	2&#39;b00: begin</span><br><span class="line">                	reg_wdata &#x3D; &#123;&#123;24&#123;mem_rdata_i[7]&#125;&#125;, mem_rdata_i[7:0]&#125;;</span><br><span class="line">               	end</span><br><span class="line">                2&#39;b01: begin</span><br><span class="line">                	reg_wdata &#x3D; &#123;&#123;24&#123;mem_rdata_i[15]&#125;&#125;, mem_rdata_i[15:8]&#125;;</span><br><span class="line">               	end</span><br><span class="line">                2&#39;b10: begin</span><br><span class="line">                  	reg_wdata &#x3D; &#123;&#123;24&#123;mem_rdata_i[23]&#125;&#125;, mem_rdata_i[23:16]&#125;;</span><br><span class="line">              	end</span><br><span class="line">              	default: begin</span><br><span class="line">                  	reg_wdata &#x3D; &#123;&#123;24&#123;mem_rdata_i[31]&#125;&#125;, mem_rdata_i[31:24]&#125;;</span><br><span class="line">               	end</span><br><span class="line">			endcase</span><br><span class="line">		end</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>第2~4行，译码出lb指令。</p>
+<p>第5~10行，将没有涉及的信号置为默认值。</p>
+<p>第11行，得到访存的地址。</p>
+<p>第12行，由于访问内存的地址必须是4字节对齐的，因此这里的mem_raddr_index的含义就是32位内存数据(4个字节)中的哪一个字节，2’b00表示第0个字节，即最低字节，2’b01表示第1个字节，2’b10表示第2个字节，2’b11表示第3个字节，即最高字节。</p>
+<p>第14、17、20、23行，写寄存器数据。</p>
+<h2 id="回写"><a href="#回写" class="headerlink" title="回写"></a>回写</h2><p>由于tinyriscv只有三级流水线，因此也没有回写(write back，或者说写回)这个阶段，在执行阶段结束后的下一个时钟上升沿就会把数据写回寄存器或者内存。</p>
+<p>需要注意的是，在执行阶段，判断如果是内存存储指令(sb、sh、sw)，则向总线发出访问内存请求。而对于内存加载(lb、lh、lw、lbu、lhu)指令是不需要的。因为内存存储指令既需要加载内存数据又需要往内存存储数据。</p>
+<p>以sb指令为例，代码(位于ex.v)如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">&#96;INST_TYPE_S: begin</span><br><span class="line">	case (funct3)</span><br><span class="line">    	&#96;INST_SB: begin</span><br><span class="line">        	jump_flag &#x3D; &#96;JumpDisable;</span><br><span class="line">            hold_flag &#x3D; &#96;HoldDisable;</span><br><span class="line">            jump_addr &#x3D; &#96;ZeroWord;</span><br><span class="line">            reg_wdata &#x3D; &#96;ZeroWord;</span><br><span class="line">            mem_we &#x3D; &#96;WriteEnable;</span><br><span class="line">            mem_req &#x3D; &#96;RIB_REQ;</span><br><span class="line">            mem_waddr_o &#x3D; reg1_rdata_i + &#123;&#123;20&#123;inst_i[31]&#125;&#125;, inst_i[31:25], inst_i[11:7]&#125;;</span><br><span class="line">            mem_raddr_o &#x3D; reg1_rdata_i + &#123;&#123;20&#123;inst_i[31]&#125;&#125;, inst_i[31:25], inst_i[11:7]&#125;;</span><br><span class="line">            case (mem_waddr_index)</span><br><span class="line">            	2&#39;b00: begin</span><br><span class="line">                	mem_wdata_o &#x3D; &#123;mem_rdata_i[31:8], reg2_rdata_i[7:0]&#125;;</span><br><span class="line">                end</span><br><span class="line">                2&#39;b01: begin</span><br><span class="line">                   mem_wdata_o &#x3D; &#123;mem_rdata_i[31:16], reg2_rdata_i[7:0], mem_rdata_i[7:0]&#125;;</span><br><span class="line">               	end</span><br><span class="line">                2&#39;b10: begin</span><br><span class="line">                	mem_wdata_o &#x3D; &#123;mem_rdata_i[31:24], reg2_rdata_i[7:0], mem_rdata_i[15:0]&#125;;</span><br><span class="line">                end</span><br><span class="line">                default: begin</span><br><span class="line">                	mem_wdata_o &#x3D; &#123;reg2_rdata_i[7:0], mem_rdata_i[23:0]&#125;;</span><br><span class="line">                end</span><br><span class="line">          	endcase</span><br><span class="line">     	end</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>第2~4行，译码出sb指令。</p>
+<p>第5~8行，将没有涉及的信号置为默认值。</p>
+<p>第9行，写内存使能。</p>
+<p>第10行，发出访问内存请求。</p>
+<p>第11行，内存写地址。</p>
+<p>第12行，内存读地址，读地址和写地址是一样的。</p>
+<p>第13行，mem_waddr_index的含义就是写32位内存数据中的哪一个字节。</p>
+<p>第15、18、21、24行，写内存数据。</p>
+<p>sb指令只改变读出来的32位内存数据中对应的字节，其他3个字节的数据保持不变，然后写回到内存中。</p>
+<h2 id="跳转和流水线暂停"><a href="#跳转和流水线暂停" class="headerlink" title="跳转和流水线暂停"></a>跳转和流水线暂停</h2><p>跳转就是改变PC寄存器的值。又因为跳转与否需要在执行阶段才知道，所以当需要跳转时，则需要暂停流水线(正确来说是冲刷流水线。流水线是不可以暂停的，除非时钟不跑了)。那怎么暂停流水线呢？或者说怎么实现流水线冲刷呢？tinyriscv的流水线结构如下图所示。</p>
+<p><img src="/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/pipeline.jpg" alt="流水线"></p>
+<p>其中长方形表示的是时序逻辑电路，云状型表示的是组合逻辑电路。在执行阶段，当判断需要发生跳转时，发出跳转信号和跳转地址给ctrl(ctrl.v)模块。ctrl模块判断跳转信号有效后会给pc_reg、if_id和id_ex模块发出流水线暂停信号，并且还会给pc_reg模块发出跳转地址。在时钟上升沿到来时，if_id和id_ex模块如果检测到流水线暂停信号有效则送出NOP指令，从而使得整条流水线(译码阶段、执行阶段)流淌的都是NOP指令，已经取出的指令就会无效，这就是流水线冲刷机制。</p>
+<p>下面看ctrl.v模块是怎么设计的。ctrl.v的输入输出信号如下表所示：</p>
+<table>
+<thead>
+<tr>
+<th align="center">序号</th>
+<th align="center">信号名</th>
+<th align="center">输入/输出</th>
+<th align="center">位宽(bits)</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">1</td>
+<td align="center">rst</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">复位信号</td>
+</tr>
+<tr>
+<td align="center">2</td>
+<td align="center">jump_flag_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">跳转标志</td>
+</tr>
+<tr>
+<td align="center">3</td>
+<td align="center">jump_addr_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">跳转地址</td>
+</tr>
+<tr>
+<td align="center">4</td>
+<td align="center">hold_flag_ex_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">来自执行模块的暂停标志</td>
+</tr>
+<tr>
+<td align="center">5</td>
+<td align="center">hold_flag_rib_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">来自总线模块的暂停标志</td>
+</tr>
+<tr>
+<td align="center">6</td>
+<td align="center">jtag_halt_flag_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">来自jtag模块的暂停标志</td>
+</tr>
+<tr>
+<td align="center">7</td>
+<td align="center">hold_flag_clint_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">来自中断模块的暂停标志</td>
+</tr>
+<tr>
+<td align="center">8</td>
+<td align="center">hold_flag_o</td>
+<td align="center">输出</td>
+<td align="center">3</td>
+<td align="center">暂停标志</td>
+</tr>
+<tr>
+<td align="center">9</td>
+<td align="center">jump_flag_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">跳转标志</td>
+</tr>
+<tr>
+<td align="center">10</td>
+<td align="center">jump_addr_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">跳转地址</td>
+</tr>
+</tbody></table>
+<p>可知，暂停信号来自多个模块。对于跳转(跳转包含暂停流水线操作)，是要冲刷整条流水线的，因为跳转后流水线上其他阶段的其他操作是无效的。对于其他模块的暂停信号，一种最简单的设计就是也冲刷整条流水线，但是这样的话MCU的效率就会低一些。另一种设计就是根据不同的暂停信号，暂停不同的流水线阶段。比如对于总线请求的暂停只需要暂停PC寄存器这一阶段就可以了，让流水线上的其他阶段继续工作。看ctrl.v的代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">    always @ (*) begin</span><br><span class="line">        if (rst &#x3D;&#x3D; &#96;RstEnable) begin</span><br><span class="line">            hold_flag_o &#x3D; &#96;Hold_None;</span><br><span class="line">            jump_flag_o &#x3D; &#96;JumpDisable;</span><br><span class="line">            jump_addr_o &#x3D; &#96;ZeroWord;</span><br><span class="line">        end else begin</span><br><span class="line">            jump_addr_o &#x3D; jump_addr_i;</span><br><span class="line">            jump_flag_o &#x3D; jump_flag_i;</span><br><span class="line">            &#x2F;&#x2F; 默认不暂停</span><br><span class="line">            hold_flag_o &#x3D; &#96;Hold_None;</span><br><span class="line">            &#x2F;&#x2F; 按优先级处理不同模块的请求</span><br><span class="line">            if (jump_flag_i &#x3D;&#x3D; &#96;JumpEnable || hold_flag_ex_i &#x3D;&#x3D; &#96;HoldEnable || hold_flag_clint_i &#x3D;&#x3D; &#96;HoldEnable) begin</span><br><span class="line">                &#x2F;&#x2F; 暂停整条流水线</span><br><span class="line">                hold_flag_o &#x3D; &#96;Hold_Id;</span><br><span class="line">            end else if (hold_flag_rib_i &#x3D;&#x3D; &#96;HoldEnable) begin</span><br><span class="line">                &#x2F;&#x2F; 暂停PC，即取指地址不变</span><br><span class="line">                hold_flag_o &#x3D; &#96;Hold_Pc;</span><br><span class="line">            end else if (jtag_halt_flag_i &#x3D;&#x3D; &#96;HoldEnable) begin</span><br><span class="line">                &#x2F;&#x2F; 暂停整条流水线</span><br><span class="line">                hold_flag_o &#x3D; &#96;Hold_Id;</span><br><span class="line">            end else begin</span><br><span class="line">                hold_flag_o &#x3D; &#96;Hold_None;</span><br><span class="line">            end</span><br><span class="line">        end</span><br><span class="line">    end</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>第3~6行，复位时赋默认值。</p>
+<p>第8行，输出跳转地址直接等于输入跳转地址。</p>
+<p>第9行，输出跳转标志直接等于输入跳转标志。</p>
+<p>第11行，默认不暂停流水线。</p>
+<p>第13、14行，对于跳转操作、来自执行阶段的暂停、来自中断模块的暂停则暂停整条流水线。</p>
+<p>第16~18行，对于总线暂停，只需要暂停PC寄存器，让译码和执行阶段继续运行。</p>
+<p>第19~21行，对于jtag模块暂停，则暂停整条流水线。</p>
+<p>跳转时只需要暂停流水线一个时钟周期，但是如果是多周期指令(比如除法指令)，则需要暂停流水线多个时钟周期。</p>
+<h2 id="总线"><a href="#总线" class="headerlink" title="总线"></a>总线</h2><p>设想一下一个没有总线的SOC，处理器核与外设之间的连接是怎样的。可能会如下图所示：</p>
+<p><img src="/2020/04/29/%E4%BB%8E%E9%9B%B6%E5%BC%80%E5%A7%8B%E5%86%99RISC-V%E5%A4%84%E7%90%86%E5%99%A8/no_bus.jpg" alt="no_bus"></p>
+<p>可见，处理器核core直接与每个外设进行交互。假设一个外设有一条地址总线和一条数据总线，总共有N个外设，那么处理器核就有N条地址总线和N条数据总线，而且每增加一个外设就要修改(改动还不小)core的代码。有了总线之后(见本章开头的图2_1)，处理器核只需要一条地址总线和一条数据总线，大大简化了处理器核与外设之间的连接。</p>
+<p>目前已经有不少成熟、标准的总线，比如AMBA、wishbone、AXI等。设计CPU时大可以直接使用其中某一种，以节省开发时间。但是为了追求简单，tinyriscv并没有使用这些总线，而是自主设计了一种名为RIB(RISC-V Internal Bus)的总线。RIB总线支持多主多从连接，但是同一时刻只支持一主一从通信。RIB总线上的各个主设备之间采用固定优先级仲裁机制。</p>
+<p>RIB总线模块所在的源文件：rtl/core/rib.v</p>
+<p>RIB总线模块的输入输出信号如下表所示(由于各个主、从之间的信号是类似的，所以这里只列出其中一个主和一个从的信号)：</p>
+<table>
+<thead>
+<tr>
+<th align="center">序号</th>
+<th align="center">信号名</th>
+<th align="center">输入/输出</th>
+<th align="center">位宽(bits)</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">1</td>
+<td align="center">m0_addr_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">主设备0读写外设地址</td>
+</tr>
+<tr>
+<td align="center">2</td>
+<td align="center">m0_data_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">主设备0写外设数据</td>
+</tr>
+<tr>
+<td align="center">3</td>
+<td align="center">m0_data_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">主设备0读取到的数据</td>
+</tr>
+<tr>
+<td align="center">4</td>
+<td align="center">m0_ack_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">主设备0访问完成标志</td>
+</tr>
+<tr>
+<td align="center">5</td>
+<td align="center">m0_req_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">主设备0访问请求标志</td>
+</tr>
+<tr>
+<td align="center">6</td>
+<td align="center">m0_we_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">主设备0写标志</td>
+</tr>
+<tr>
+<td align="center">7</td>
+<td align="center">s0_addr_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">从设备0读、写地址</td>
+</tr>
+<tr>
+<td align="center">8</td>
+<td align="center">s0_data_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">从设备0写数据</td>
+</tr>
+<tr>
+<td align="center">9</td>
+<td align="center">s0_data_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">从设备0读取到的数据</td>
+</tr>
+<tr>
+<td align="center">10</td>
+<td align="center">s0_ack_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">从设备0访问完成标志</td>
+</tr>
+<tr>
+<td align="center">11</td>
+<td align="center">s0_req_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">从设备0访问请求标志</td>
+</tr>
+<tr>
+<td align="center">12</td>
+<td align="center">s0_we_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">从设备0写标志</td>
+</tr>
+</tbody></table>
+<p>RIB总线本质上是一个多路选择器，从多个主设备中选择其中一个来访问对应的从设备。</p>
+<p>RIB总线地址的最高4位决定要访问的是哪一个从设备，因此最多支持16个从设备。</p>
+<p>仲裁方式采用的类似状态机的方式来实现，代码如下所示：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">    &#x2F;&#x2F; 主设备请求信号</span><br><span class="line">    assign req &#x3D; &#123;m2_req_i, m1_req_i, m0_req_i&#125;;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; 授权主设备切换</span><br><span class="line">    always @ (posedge clk) begin</span><br><span class="line">        if (rst &#x3D;&#x3D; &#96;RstEnable) begin</span><br><span class="line">            grant &lt;&#x3D; grant1;</span><br><span class="line">        end else begin</span><br><span class="line">            grant &lt;&#x3D; next_grant;</span><br><span class="line">        end</span><br><span class="line">    end</span><br><span class="line"></span><br><span class="line">    &#x2F;&#x2F; 仲裁逻辑</span><br><span class="line">    &#x2F;&#x2F; 固定优先级仲裁机制</span><br><span class="line">    &#x2F;&#x2F; 优先级由高到低：主设备0，主设备2，主设备1</span><br><span class="line">    always @ (*) begin</span><br><span class="line">        if (rst &#x3D;&#x3D; &#96;RstEnable) begin</span><br><span class="line">            next_grant &#x3D; grant1;</span><br><span class="line">            hold_flag_o &#x3D; &#96;HoldDisable;</span><br><span class="line">        end else begin</span><br><span class="line">            case (grant)</span><br><span class="line">                grant0: begin</span><br><span class="line">                    if (req[0]) begin</span><br><span class="line">                        next_grant &#x3D; grant0;</span><br><span class="line">                        hold_flag_o &#x3D; &#96;HoldEnable;</span><br><span class="line">                    end else if (req[2]) begin</span><br><span class="line">                        next_grant &#x3D; grant2;</span><br><span class="line">                        hold_flag_o &#x3D; &#96;HoldEnable;</span><br><span class="line">                    end else begin</span><br><span class="line">                        next_grant &#x3D; grant1;</span><br><span class="line">                        hold_flag_o &#x3D; &#96;HoldDisable;</span><br><span class="line">                    end</span><br><span class="line">                end</span><br><span class="line">                grant1: begin</span><br><span class="line">                    if (req[0]) begin</span><br><span class="line">                        next_grant &#x3D; grant0;</span><br><span class="line">                        hold_flag_o &#x3D; &#96;HoldEnable;</span><br><span class="line">                    end else if (req[2]) begin</span><br><span class="line">                        next_grant &#x3D; grant2;</span><br><span class="line">                        hold_flag_o &#x3D; &#96;HoldEnable;</span><br><span class="line">                    end else begin</span><br><span class="line">                        next_grant &#x3D; grant1;</span><br><span class="line">                        hold_flag_o &#x3D; &#96;HoldDisable;</span><br><span class="line">                    end</span><br><span class="line">                end</span><br><span class="line">                grant2: begin</span><br><span class="line">                    if (req[0]) begin</span><br><span class="line">                        next_grant &#x3D; grant0;</span><br><span class="line">                        hold_flag_o &#x3D; &#96;HoldEnable;</span><br><span class="line">                    end else if (req[2]) begin</span><br><span class="line">                        next_grant &#x3D; grant2;</span><br><span class="line">                        hold_flag_o &#x3D; &#96;HoldEnable;</span><br><span class="line">                    end else begin</span><br><span class="line">                        next_grant &#x3D; grant1;</span><br><span class="line">                        hold_flag_o &#x3D; &#96;HoldDisable;</span><br><span class="line">                    end</span><br><span class="line">                end</span><br><span class="line">                default: begin</span><br><span class="line">                    next_grant &#x3D; grant1;</span><br><span class="line">                    hold_flag_o &#x3D; &#96;HoldDisable;</span><br><span class="line">                end</span><br><span class="line">            endcase</span><br><span class="line">        end</span><br><span class="line">    end</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>第3行，主设备请求信号的组合。</p>
+<p>第7~13行，切换主设备操作，默认是授权给主设备1的，即取指模块。从这里可以知道，从发出总线访问请求后，需要一个时钟周期才能完成切换。</p>
+<p>第18~66行，通过组合逻辑电路来实现优先级仲裁。</p>
+<p>第20行，默认授权给主设备1。</p>
+<p>第24~35行，这是已经授权给主设备0的情况。第25、28、31行，分别对应主设备0、主设备2和主设备1的请求，通过if、else语句来实现优先级。第27、30行，主设备0和主设备2的请求需要暂停流水线，这里只需要暂停PC阶段，让译码和执行阶段继续执行。</p>
+<p>第36<del>47行，这是已经授权给主设备1的情况，和第24</del>35行的操作是类似的。</p>
+<p>第48<del>59行，这是已经授权给主设备2的情况，和第24</del>35行的操作是类似的。</p>
+<p>注意：RIB总线上不同的主设备切换是需要一个时钟周期的，因此如果想要在执行阶段读取到外设的数据，则需要在译码阶段就发出总线访问请求。</p>
+<h2 id="中断"><a href="#中断" class="headerlink" title="中断"></a>中断</h2><p>中断(中断返回)本质上也是一种跳转，只不过还需要附加一些读写CSR寄存器的操作。</p>
+<p>RISC-V中断分为两种类型，一种是同步中断，即ECALL、EBREAK等指令所产生的中断，另一种是异步中断，即GPIO、UART等外设产生的中断。</p>
+<p>对于中断模块设计，一种简单的方法就是当检测到中断(中断返回)信号时，先暂停整条流水线，设置跳转地址为中断入口地址，然后读、写必要的CSR寄存器(mstatus、mepc、mcause等)，等读写完这些CSR寄存器后取消流水线暂停，这样处理器就可以从中断入口地址开始取指，进入中断服务程序。</p>
+<p>下面看tinyriscv的中断是如何设计的。中断模块所在文件：rtl/core/clint.v</p>
+<p>输入输出信号列表如下：</p>
+<table>
+<thead>
+<tr>
+<th align="center">序号</th>
+<th align="center">信号名</th>
+<th align="center">输入/输出</th>
+<th align="center">位宽(bits)</th>
+<th align="center">说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">1</td>
+<td align="center">clk</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">时钟信号</td>
+</tr>
+<tr>
+<td align="center">2</td>
+<td align="center">rst</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">复位信号</td>
+</tr>
+<tr>
+<td align="center">3</td>
+<td align="center">int_flag_i</td>
+<td align="center">输入</td>
+<td align="center">8</td>
+<td align="center">外设中断信号</td>
+</tr>
+<tr>
+<td align="center">4</td>
+<td align="center">inst_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">指令内容</td>
+</tr>
+<tr>
+<td align="center">5</td>
+<td align="center">inst_addr_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">指令地址</td>
+</tr>
+<tr>
+<td align="center">6</td>
+<td align="center">hold_flag_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">未使用</td>
+</tr>
+<tr>
+<td align="center">7</td>
+<td align="center">data_i</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">未使用</td>
+</tr>
+<tr>
+<td align="center">8</td>
+<td align="center">csr_mtvec</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">mtvec寄存器内容</td>
+</tr>
+<tr>
+<td align="center">9</td>
+<td align="center">csr_mepc</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">mepc寄存器内容</td>
+</tr>
+<tr>
+<td align="center">10</td>
+<td align="center">csr_mstatus</td>
+<td align="center">输入</td>
+<td align="center">32</td>
+<td align="center">mstatus寄存器内容</td>
+</tr>
+<tr>
+<td align="center">11</td>
+<td align="center">global_int_en_i</td>
+<td align="center">输入</td>
+<td align="center">1</td>
+<td align="center">全局外设中断使能</td>
+</tr>
+<tr>
+<td align="center">12</td>
+<td align="center">hold_flag_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">流水线暂停标志</td>
+</tr>
+<tr>
+<td align="center">13</td>
+<td align="center">we_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">写使能</td>
+</tr>
+<tr>
+<td align="center">14</td>
+<td align="center">waddr_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">写地址</td>
+</tr>
+<tr>
+<td align="center">15</td>
+<td align="center">raddr_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">读地址</td>
+</tr>
+<tr>
+<td align="center">16</td>
+<td align="center">data_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">写数据</td>
+</tr>
+<tr>
+<td align="center">17</td>
+<td align="center">int_addr_o</td>
+<td align="center">输出</td>
+<td align="center">32</td>
+<td align="center">中断入口地址</td>
+</tr>
+<tr>
+<td align="center">18</td>
+<td align="center">int_assert_o</td>
+<td align="center">输出</td>
+<td align="center">1</td>
+<td align="center">中断有效标志</td>
+</tr>
+</tbody></table>
+<p>先看中断模块是怎样判断有中断信号产生的，如下代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">    always @ (*) begin</span><br><span class="line">        if (rst &#x3D;&#x3D; &#96;RstEnable) begin</span><br><span class="line">            int_state &#x3D; S_INT_IDLE;</span><br><span class="line">        end else begin</span><br><span class="line">            if (inst_i &#x3D;&#x3D; &#96;INST_ECALL || inst_i &#x3D;&#x3D; &#96;INST_EBREAK) begin</span><br><span class="line">                int_state &#x3D; S_INT_SYNC_ASSERT;</span><br><span class="line">            end else if (int_flag_i !&#x3D; &#96;INT_NONE &amp;&amp; global_int_en_i &#x3D;&#x3D; &#96;True) begin</span><br><span class="line">                int_state &#x3D; S_INT_ASYNC_ASSERT;</span><br><span class="line">            end else if (inst_i &#x3D;&#x3D; &#96;INST_MRET) begin</span><br><span class="line">                int_state &#x3D; S_INT_MRET;</span><br><span class="line">            end else begin</span><br><span class="line">                int_state &#x3D; S_INT_IDLE;</span><br><span class="line">            end</span><br><span class="line">        end</span><br><span class="line">    end</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>第3~4行，复位后的状态，默认没有中断要处理。</p>
+<p>第6~7行，判断当前指令是否是ECALL或者EBREAK指令，如果是则设置中断状态为S_INT_SYNC_ASSERT，表示有同步中断要处理。</p>
+<p>第8~9行，判断是否有外设中断信号产生，如果是则设置中断状态为S_INT_ASYNC_ASSERT，表示有异步中断要处理。</p>
+<p>第10~11行，判断当前指令是否是MRET指令，MRET指令是中断返回指令。如果是，则设置中断状态为S_INT_MRET。</p>
+<p>下面就根据当前的中断状态做不同处理（读写不同的CSR寄存器），代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">    always @ (posedge clk) begin</span><br><span class="line">        if (rst &#x3D;&#x3D; &#96;RstEnable) begin</span><br><span class="line">            csr_state &lt;&#x3D; S_CSR_IDLE;</span><br><span class="line">            cause &lt;&#x3D; &#96;ZeroWord;</span><br><span class="line">            inst_addr &lt;&#x3D; &#96;ZeroWord;</span><br><span class="line">        end else begin</span><br><span class="line">            case (csr_state)</span><br><span class="line">                S_CSR_IDLE: begin</span><br><span class="line">                    if (int_state &#x3D;&#x3D; S_INT_SYNC_ASSERT) begin</span><br><span class="line">                        csr_state &lt;&#x3D; S_CSR_MEPC;</span><br><span class="line">                        inst_addr &lt;&#x3D; inst_addr_i;</span><br><span class="line">                        case (inst_i)</span><br><span class="line">                            &#96;INST_ECALL: begin</span><br><span class="line">                                cause &lt;&#x3D; 32&#39;d11;</span><br><span class="line">                            end</span><br><span class="line">                            &#96;INST_EBREAK: begin</span><br><span class="line">                                cause &lt;&#x3D; 32&#39;d3;</span><br><span class="line">                            end</span><br><span class="line">                            default: begin</span><br><span class="line">                                cause &lt;&#x3D; 32&#39;d10;</span><br><span class="line">                            end</span><br><span class="line">                        endcase</span><br><span class="line">                    end else if (int_state &#x3D;&#x3D; S_INT_ASYNC_ASSERT) begin</span><br><span class="line">                        &#x2F;&#x2F; 定时器中断</span><br><span class="line">                        cause &lt;&#x3D; 32&#39;h80000004;</span><br><span class="line">                        csr_state &lt;&#x3D; S_CSR_MEPC;</span><br><span class="line">                        inst_addr &lt;&#x3D; inst_addr_i;</span><br><span class="line">                    &#x2F;&#x2F; 中断返回</span><br><span class="line">                    end else if (int_state &#x3D;&#x3D; S_INT_MRET) begin</span><br><span class="line">                        csr_state &lt;&#x3D; S_CSR_MSTATUS_MRET;</span><br><span class="line">                    end</span><br><span class="line">                end</span><br><span class="line">                S_CSR_MEPC: begin</span><br><span class="line">                    csr_state &lt;&#x3D; S_CSR_MCAUSE;</span><br><span class="line">                end</span><br><span class="line">                S_CSR_MCAUSE: begin</span><br><span class="line">                    csr_state &lt;&#x3D; S_CSR_MSTATUS;</span><br><span class="line">                end</span><br><span class="line">                S_CSR_MSTATUS: begin</span><br><span class="line">                    csr_state &lt;&#x3D; S_CSR_IDLE;</span><br><span class="line">                end</span><br><span class="line">                S_CSR_MSTATUS_MRET: begin</span><br><span class="line">                    csr_state &lt;&#x3D; S_CSR_IDLE;</span><br><span class="line">                end</span><br><span class="line">                default: begin</span><br><span class="line">                    csr_state &lt;&#x3D; S_CSR_IDLE;</span><br><span class="line">                end</span><br><span class="line">            endcase</span><br><span class="line">        end</span><br><span class="line">    end</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>第3~6行，CSR状态默认处于S_CSR_IDLE。</p>
+<p>第10<del>23行，当CSR处于S_CSR_IDLE时，如果中断状态为S_INT_SYNC_ASSERT，则在第11行将CSR状态设置为S_CSR_MEPC，在第12行将当前指令地址保存下来。在第13</del>23行，根据不同的指令类型，设置不同的中断码(Exception Code)，这样在中断服务程序里就可以知道当前中断发生的原因了。</p>
+<p>第24~28行，目前tinyriscv只支持定时器这个外设中断。</p>
+<p>第30~31行，如果是中断返回指令，则设置CSR状态为S_CSR_MSTATUS_MRET。</p>
+<p>第34~48行，一个时钟切换一下CSR状态。</p>
+<p>接下来就是写CSR寄存器操作，需要根据上面的CSR状态来写。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">&#x2F;&#x2F; 发出中断信号前，先写几个CSR寄存器</span><br><span class="line">    always @ (posedge clk) begin</span><br><span class="line">        if (rst &#x3D;&#x3D; &#96;RstEnable) begin</span><br><span class="line">            we_o &lt;&#x3D; &#96;WriteDisable;</span><br><span class="line">            waddr_o &lt;&#x3D; &#96;ZeroWord;</span><br><span class="line">            data_o &lt;&#x3D; &#96;ZeroWord;</span><br><span class="line">        end else begin</span><br><span class="line">            case (csr_state)</span><br><span class="line">                &#x2F;&#x2F; 将mepc寄存器的值设为当前指令地址</span><br><span class="line">                S_CSR_MEPC: begin</span><br><span class="line">                    we_o &lt;&#x3D; &#96;WriteEnable;</span><br><span class="line">                    waddr_o &lt;&#x3D; &#123;20&#39;h0, &#96;CSR_MEPC&#125;;</span><br><span class="line">                    data_o &lt;&#x3D; inst_addr;</span><br><span class="line">                end</span><br><span class="line">                &#x2F;&#x2F; 写中断产生的原因</span><br><span class="line">                S_CSR_MCAUSE: begin</span><br><span class="line">                    we_o &lt;&#x3D; &#96;WriteEnable;</span><br><span class="line">                    waddr_o &lt;&#x3D; &#123;20&#39;h0, &#96;CSR_MCAUSE&#125;;</span><br><span class="line">                    data_o &lt;&#x3D; cause;</span><br><span class="line">                end</span><br><span class="line">                &#x2F;&#x2F; 关闭全局中断</span><br><span class="line">                S_CSR_MSTATUS: begin</span><br><span class="line">                    we_o &lt;&#x3D; &#96;WriteEnable;</span><br><span class="line">                    waddr_o &lt;&#x3D; &#123;20&#39;h0, &#96;CSR_MSTATUS&#125;;</span><br><span class="line">                    data_o &lt;&#x3D; &#123;csr_mstatus[31:4], 1&#39;b0, csr_mstatus[2:0]&#125;;</span><br><span class="line">                end</span><br><span class="line">                &#x2F;&#x2F; 中断返回</span><br><span class="line">                S_CSR_MSTATUS_MRET: begin</span><br><span class="line">                    we_o &lt;&#x3D; &#96;WriteEnable;</span><br><span class="line">                    waddr_o &lt;&#x3D; &#123;20&#39;h0, &#96;CSR_MSTATUS&#125;;</span><br><span class="line">                    data_o &lt;&#x3D; &#123;csr_mstatus[31:4], csr_mstatus[7], csr_mstatus[2:0]&#125;;</span><br><span class="line">                end</span><br><span class="line">                default: begin</span><br><span class="line">                    we_o &lt;&#x3D; &#96;WriteDisable;</span><br><span class="line">                    waddr_o &lt;&#x3D; &#96;ZeroWord;</span><br><span class="line">                    data_o &lt;&#x3D; &#96;ZeroWord;</span><br><span class="line">                end</span><br><span class="line">            endcase</span><br><span class="line">        end</span><br><span class="line">    end</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>第11~15行，写mepc寄存器。</p>
+<p>第17~21行，写mcause寄存器。</p>
+<p>第23~27行，关闭全局异步中断。</p>
+<p>第29~33行，写mstatus寄存器。</p>
+<p>最后就是发出中断信号，中断信号会进入到执行阶段。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">    &#x2F;&#x2F; 发出中断信号给ex模块</span><br><span class="line">    always @ (posedge clk) begin</span><br><span class="line">        if (rst &#x3D;&#x3D; &#96;RstEnable) begin</span><br><span class="line">            int_assert_o &lt;&#x3D; &#96;INT_DEASSERT;</span><br><span class="line">            int_addr_o &lt;&#x3D; &#96;ZeroWord;</span><br><span class="line">        end else begin</span><br><span class="line">            &#x2F;&#x2F; 发出中断进入信号.写完mstatus寄存器才能发</span><br><span class="line">            if (csr_state &#x3D;&#x3D; S_CSR_MSTATUS) begin</span><br><span class="line">                int_assert_o &lt;&#x3D; &#96;INT_ASSERT;</span><br><span class="line">                int_addr_o &lt;&#x3D; csr_mtvec;</span><br><span class="line">            &#x2F;&#x2F; 发出中断返回信号</span><br><span class="line">            end else if (csr_state &#x3D;&#x3D; S_CSR_MSTATUS_MRET) begin</span><br><span class="line">                int_assert_o &lt;&#x3D; &#96;INT_ASSERT;</span><br><span class="line">                int_addr_o &lt;&#x3D; csr_mepc;</span><br><span class="line">            end else begin</span><br><span class="line">                int_assert_o &lt;&#x3D; &#96;INT_DEASSERT;</span><br><span class="line">                int_addr_o &lt;&#x3D; &#96;ZeroWord;</span><br><span class="line">            end</span><br><span class="line">        end</span><br><span class="line">    end</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>有两种情况需要发出中断信号，一种是进入中断，另一种是退出中断。</p>
+<p>第9~12行，写完mstatus寄存器后发出中断进入信号，中断入口地址就是mtvec寄存器的值。</p>
+<p>第13~15行，发出中断退出信号，中断退出地址就是mepc寄存器的值。</p>
+<h2 id="JTAG"><a href="#JTAG" class="headerlink" title="JTAG"></a>JTAG</h2><p>JTAG作为一种调试接口，在处理器设计里算是比较大而且复杂、却不起眼的一个模块，绝大部分开源处理器核都没有JTAG(调试)模块。但是为了完整性，tinyriscv还是加入了JTAG模块，还单独为JTAG写了一篇文章<a href="https://liangkangnan.gitee.io/2020/03/21/%E6%B7%B1%E5%85%A5%E6%B5%85%E5%87%BARISC-V%E8%B0%83%E8%AF%95/" target="_blank" rel="noopener">《深入浅出RISC-V调试》</a>，感兴趣的同学可以去看一下，这里不再单独介绍了。要明白JTAG模块的设计原理，必须先看懂RISC-V的debug spec。 </p>
+<h2 id="RTL仿真验证"><a href="#RTL仿真验证" class="headerlink" title="RTL仿真验证"></a>RTL仿真验证</h2><p>写完处理器代码后，怎么证明所写的处理器是能正确执行指令的呢？这时就需要写testbench来测试了。其实在写代码的时候就应该在头脑里进行仿真。这里并没有使用ModelSim这些软件进行仿真，而是使用了一个轻量级的iverilog和vvp工具。</p>
+<p>在写testbench文件时，有两点需要注意的，第一点就是在testbench文件里加上读指令文件的操作：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">initial begin</span><br><span class="line">    $readmemh (&quot;inst.data&quot;, tinyriscv_soc_top_0.u_rom._rom);</span><br><span class="line">end</span><br></pre></td></tr></table></figure>
+
+<p>第2行代码的作用就是将inst.data文件读入到rom模块里，inst.data里面的内容就是一条条指令，这样处理器开始执行时就可以从rom里取到指令。</p>
+<p>第二点就是，在仿真期间将仿真波形dump出到某一个文件里：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">initial begin</span><br><span class="line">    $dumpfile(&quot;tinyriscv_soc_tb.vcd&quot;);</span><br><span class="line">    $dumpvars(0, tinyriscv_soc_tb);</span><br><span class="line">end</span><br></pre></td></tr></table></figure>
+
+<p>这样仿真波形就会被dump出到tinyriscv_soc_tb.vcd文件，使用gtkwave工具就可以查看波形了。</p>
+<p>到这里，硬件篇的内容就结束了。</p>
+<p>说实话，对于数字设计而言，我只是一名初学者，甚至连门都还没入，有写得不好或者不清楚的地方还请多多包涵。</p>
+<h1 id="软件篇"><a href="#软件篇" class="headerlink" title="软件篇"></a>软件篇</h1><h2 id="RISC-V汇编语言"><a href="#RISC-V汇编语言" class="headerlink" title="RISC-V汇编语言"></a>RISC-V汇编语言</h2><p>汇编语言属于低级语言，这里的低级是相对于C、C++等高级语言而言的，并不是说汇编语言很“low”。汇编语言与具体的CPU架构（ARM、X86、RISC-V等）紧密关联，每一种CPU架构都有其对应的汇编语言。</p>
+<p>汇编语言作为连接底层软件和处理器硬件（数字逻辑）的桥梁，要求做硬件和做底层软件的人都必须掌握的，只是要求掌握的程度不一样而已。有不少同学在数字方面很强，甚至整个处理器都写出来了，但是却不知道怎么写汇编语言或者C语言程序在上面跑。</p>
+<p>虽然我对RISC-V汇编语言不是很熟悉，但我个人觉得RISC-V汇编语言还是很好掌握的（容易理解）。</p>
+<p>RV32I有32个通用寄存器（x0至x31），PC寄存器不在这32个寄存器里面，其中x0为只读寄存器，其值固定为0。在RISC-V汇编语言程序里，我们一般看到的不是x0、x1、x2等这些名字，而是zero、ra、sp等名字，是因为这里的x0至x31有其对应的ABI（application<br>binary interface）名字，如下表所示：</p>
+<table>
+<thead>
+<tr>
+<th align="center">寄存器</th>
+<th align="center">ABI</th>
+<th align="center">寄存器</th>
+<th align="center">ABI</th>
+<th align="center">寄存器</th>
+<th align="center">ABI</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">x0</td>
+<td align="center">zero</td>
+<td align="center">x11</td>
+<td align="center">a1</td>
+<td align="center">x22</td>
+<td align="center">s6</td>
+</tr>
+<tr>
+<td align="center">x1</td>
+<td align="center">ra</td>
+<td align="center">x12</td>
+<td align="center">a2</td>
+<td align="center">x23</td>
+<td align="center">s7</td>
+</tr>
+<tr>
+<td align="center">x2</td>
+<td align="center">sp</td>
+<td align="center">x13</td>
+<td align="center">a3</td>
+<td align="center">x24</td>
+<td align="center">s8</td>
+</tr>
+<tr>
+<td align="center">x3</td>
+<td align="center">gp</td>
+<td align="center">x14</td>
+<td align="center">a4</td>
+<td align="center">x25</td>
+<td align="center">s9</td>
+</tr>
+<tr>
+<td align="center">x4</td>
+<td align="center">tp</td>
+<td align="center">x15</td>
+<td align="center">a5</td>
+<td align="center">x26</td>
+<td align="center">s10</td>
+</tr>
+<tr>
+<td align="center">x5</td>
+<td align="center">t0</td>
+<td align="center">x16</td>
+<td align="center">a6</td>
+<td align="center">x27</td>
+<td align="center">s11</td>
+</tr>
+<tr>
+<td align="center">x6</td>
+<td align="center">t1</td>
+<td align="center">x17</td>
+<td align="center">a7</td>
+<td align="center">x28</td>
+<td align="center">t3</td>
+</tr>
+<tr>
+<td align="center">x7</td>
+<td align="center">t2</td>
+<td align="center">x18</td>
+<td align="center">s2</td>
+<td align="center">x29</td>
+<td align="center">t4</td>
+</tr>
+<tr>
+<td align="center">x8</td>
+<td align="center">s0或者fp</td>
+<td align="center">x19</td>
+<td align="center">s3</td>
+<td align="center">x30</td>
+<td align="center">t5</td>
+</tr>
+<tr>
+<td align="center">x9</td>
+<td align="center">s1</td>
+<td align="center">x20</td>
+<td align="center">s4</td>
+<td align="center">x31</td>
+<td align="center">t6</td>
+</tr>
+<tr>
+<td align="center">x10</td>
+<td align="center">a0</td>
+<td align="center">x21</td>
+<td align="center">s5</td>
+<td align="center"></td>
+<td align="center"></td>
+</tr>
+</tbody></table>
+<p>在汇编程序里，寄存器名字和ABI名字是可以直接互换的。</p>
+<p>下面是一些汇编指令，注意这些指令不是RISC-V特有的，而是GCC编译器都有的指令。</p>
+<p><strong>.align</strong>：2的N次方个字节对齐，比如.align 3，表示8字节对齐。</p>
+<p><strong>.globl</strong>：声明全局符号，比如.globl mytest，声明一个mytest的全局符号，这样在其他文件里就可以引用该符号。</p>
+<p><strong>.equ</strong>：常量定义，比如.equ MAX 10。</p>
+<p><strong>.macro</strong>：宏定义。</p>
+<p><strong>.endm</strong>：宏定义结束，与.macro配套使用。</p>
+<p><strong>.section</strong>：段定义，比如.section .text.start，定义.text.start段。</p>
+<p>下面是一些常用的RISC-V整数指令。</p>
+<p>1.lui指令</p>
+<p>语法：lui rd, imm，作用是将imm的低12位置0，结果写入rd寄存器。</p>
+<p>2.auipc指令</p>
+<p>语法：auipc rd, imm，作用是将imm的高20位左移12位，低12位置0，然后加上PC的值，结果写入rd寄存器。</p>
+<p>3.jal指令</p>
+<p>语法：jal rd, offset或者jal offset，作用是将PC的值加上4，结果写入rd寄存器，rd默认为x1，同时将PC的值加上offset。</p>
+<p>4.jalr指令</p>
+<p>语法：jalr rd, rs1或者jalr rs1，作用是将PC的值加上4，结果写入rd寄存器，rd默认为x1，同时将PC的值加上符号位扩展之后的rs1的值。</p>
+<p>5.beq指令</p>
+<p>语法：beq rs1, rs2, offset，作用是如果rs1的值等于rs2的值，则将PC设置为符号位扩展后的offset的值。</p>
+<p>6.bne指令</p>
+<p>语法：bne rs1, rs2, offset，作用是如果rs1的值不等于rs2的值，则将PC设置为符号位扩展后的offset的值。</p>
+<p>7.blt指令</p>
+<p>语法：blt rs1, rs2, offset，作用是如果rs1的值小于rs2的值（rs1和rs2均视为有符号数），则将PC设置为符号位扩展后的offset的值。</p>
+<p>8.bge指令</p>
+<p>语法：bge rs1, rs2, offset，作用是如果rs1的值大于等于rs2的值（rs1和rs2均视为有符号数），则将PC设置为符号位扩展后的offset的值。</p>
+<p>9.bltu指令</p>
+<p>语法：bltu rs1, rs2, offset，作用是如果rs1的值小于rs2的值（rs1和rs2均视为无符号数），则将PC设置为符号位扩展后的offset的值。</p>
+<p>10.bgeu指令</p>
+<p>语法：bgeu rs1, rs2, offset，作用是如果rs1的值大于等于rs2的值（rs1和rs2均视为无符号数），则将PC设置为符号位扩展后的offset的值。</p>
+<p>11.lb指令</p>
+<p>语法：lb rd, offset(rs1)，作用是从rs1加上offset的地址处读取一个字节的内容，并将该内容经符号位扩展后写入rd寄存器。</p>
+<p>12.lh指令</p>
+<p>语法：lh rd, offset(rs1)，作用是从rs1加上offset的地址处读取两个字节的内容，并将该内容经符号位扩展后写入rd寄存器。</p>
+<p>13.lw指令</p>
+<p>语法：lw rd, offset(rs1)，作用是从rs1加上offset的地址处读取四个字节的内容，结果写入rd寄存器。</p>
+<p>14.lbu指令</p>
+<p>语法：lbu rd, offset(rs1)，作用是从rs1加上offset的地址处读取一个字节的内容，并将该内容经0扩展后写入rd寄存器。</p>
+<p>15.lhu指令</p>
+<p>语法：lhu rd, offset(rs1)，作用是从rs1加上offset的地址处读取两个字节的内容，并将该内容经0扩展后写入rd寄存器。</p>
+<p>16.sb指令</p>
+<p>语法：sb rs2, offset(rs1)，作用是将rs2的最低一个字节写入rs1加上offset的地址处。</p>
+<p>17.sh指令</p>
+<p>语法：sh rs2, offset(rs1)，作用是将rs2的最低两个字节写入rs1加上offset的地址处。</p>
+<p>18.sw指令</p>
+<p>语法：sw rs2, offset(rs1)，作用是将rs2的值写入rs1加上offset的地址处。</p>
+<p>19.addi指令</p>
+<p>语法：addi rd, rs1, imm，作用是将符号扩展的立即数imm的值加上rs1的值，结果写入rd寄存器，忽略算术溢出。</p>
+<p>20.slti指令</p>
+<p>语法：slti rd, rs1, imm，作用是将符号扩展的立即数imm的值与rs1的值比较(有符号数比较)，如果rs1的值更小，则向rd寄存器写1，否则写0。</p>
+<p>21.sltiu指令</p>
+<p>语法：sltiu rd, rs1, imm，作用是将符号扩展的立即数imm的值与rs1的值比较(无符号数比较)，如果rs1的值更小，则向rd寄存器写1，否则写0。</p>
+<p>22.xori指令</p>
+<p>语法：xori rd, rs1, imm，作用是将rs1与符号位扩展的imm按位异或，结果写入rd寄存器。</p>
+<p>23.ori指令</p>
+<p>语法：ori rd, rs1, imm，作用是将rs1与符号位扩展的imm按位或，结果写入rd寄存器。</p>
+<p>24.andi指令</p>
+<p>语法：andi rd, rs1, imm，作用是将rs1与符号位扩展的imm按位与，结果写入rd寄存器。</p>
+<p>25.slli指令</p>
+<p>语法：slli rd, rs1, shamt，作用是将rs1左移shamt位，空出的位补0，结果写入rd寄存器。</p>
+<p>26.srli指令</p>
+<p>语法：srli rd, rs1, shamt，作用是将rs1右移shamt位，空出的位补0，结果写入rd寄存器。</p>
+<p>27.srai指令</p>
+<p>语法：srai rd, rs1, shamt，作用是将rs1右移shamt位，空出的位用rs1的最高位补充，结果写入rd寄存器。</p>
+<p>28.add指令</p>
+<p>语法：add rd, rs1, rs2，作用是将rs1寄存器的值加上rs2寄存器的值，然后将结果写入rd寄存器里，忽略算术溢出。</p>
+<p>29.sub指令</p>
+<p>语法：sub rd, rs1, rs2，作用是将rs1寄存器的值减去rs2寄存器的值，然后将结果写入rd寄存器里，忽略算术溢出。</p>
+<p>30.sll指令</p>
+<p>语法：sll rd, rs1, rs2，作用是将rs1左移rs2位(低5位有效)，空出的位补0，结果写入rd寄存器。</p>
+<p>31.slt指令</p>
+<p>语法：slt rd, rs1, rs2，作用是将rs1的值与rs2的值比较(有符号数比较)，如果rs1的值更小，则向rd寄存器写1，否则写0。</p>
+<p>32.sltu指令</p>
+<p>语法：sltu rd, rs1, rs2，作用是将rs1的值与rs2的值比较(无符号数比较)，如果rs1的值更小，则向rd寄存器写1，否则写0。</p>
+<p>33.xor指令</p>
+<p>语法：xor rd, rs1, rs2，作用是将rs1与rs2按位异或，结果写入rd寄存器。</p>
+<p>34.srl指令</p>
+<p>语法：srl rd, rs1, rs2，作用是将rs1右移rs2位(低5位有效)，空出的位补0，结果写入rd寄存器。</p>
+<p>35.sra指令</p>
+<p>语法：sra rd, rs1, rs2，作用是将rs1右移rs2位(低5位有效)，空出的位用rs1的最高位补充，结果写入rd寄存器。</p>
+<p>36.or指令</p>
+<p>语法：or rd, rs1, rs2，作用是将rs1与rs2按位或，结果写入rd寄存器。</p>
+<p>37.and指令</p>
+<p>语法：and rd, rs1, rs2，作用是将rs1与rs2按位与，结果写入rd寄存器。</p>
+<p>38.ecall指令</p>
+<p>语法：ecall，作用是进入异常处理程序，常用于OS的系统调用（上下文切换）。</p>
+<p>39.ebreak</p>
+<p>语法：ebreak，作用是进入调试模式。</p>
+<p>以下是CSR指令。</p>
+<p>1.csrrw指令</p>
+<p>语法：csrrw rd, csr, rs1，作用是将csr寄存器的值读入rd，然后将rs1的值写入csr寄存器。</p>
+<p>2.csrrs指令</p>
+<p>语法：csrrs rd, csr, rs1，作用是将csr寄存器的值读入rd，然后将rs1的值与csr的值按位或后的结果写入csr寄存器。</p>
+<p>3.csrrc指令</p>
+<p>语法：csrrc rd, csr, rs1，作用是将csr寄存器的值读入rd，然后将rs1的值与csr的值按位与后的结果写入csr寄存器。</p>
+<p>4.csrrwi指令</p>
+<p>语法：csrrwi rd, csr, imm，作用是将csr寄存器的值读入rd，然后将0扩展后的imm的值写入csr寄存器。</p>
+<p>5.csrrsi指令</p>
+<p>语法：csrrsi rd, csr, imm，作用是将csr寄存器的值读入rd，然后将0扩展后的imm的值与csr的值按位或后的结果写入csr寄存器。</p>
+<p>6.csrrci指令</p>
+<p>语法：csrrci rd, csr, imm，作用是将csr寄存器的值读入rd，然后将0扩展后的imm的值与csr的值按位与后的结果写入csr寄存器。</p>
+<p>我们都知道，学习一门程序语言时如果单单学习语法的话会觉得很枯燥，所以下面就以tinyriscv的启动文件start.S里的汇编程序来实战分析一下。完整的代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br></pre></td><td class="code"><pre><span class="line">    .section .init;</span><br><span class="line">    .globl _start;</span><br><span class="line">    .type _start,@function</span><br><span class="line"></span><br><span class="line">_start:</span><br><span class="line">.option push</span><br><span class="line">.option norelax</span><br><span class="line">	la gp, __global_pointer$</span><br><span class="line">.option pop</span><br><span class="line">	la sp, _sp</span><br><span class="line">#ifdef SIMULATION</span><br><span class="line">    li x26, 0x00</span><br><span class="line">    li x27, 0x00</span><br><span class="line">#endif</span><br><span class="line"></span><br><span class="line">	&#x2F;* Load data section *&#x2F;</span><br><span class="line">	la a0, _data_lma</span><br><span class="line">	la a1, _data</span><br><span class="line">	la a2, _edata</span><br><span class="line">	bgeu a1, a2, 2f</span><br><span class="line">1:</span><br><span class="line">	lw t0, (a0)</span><br><span class="line">	sw t0, (a1)</span><br><span class="line">	addi a0, a0, 4</span><br><span class="line">	addi a1, a1, 4</span><br><span class="line">	bltu a1, a2, 1b</span><br><span class="line">2:</span><br><span class="line"></span><br><span class="line">	&#x2F;* Clear bss section *&#x2F;</span><br><span class="line">	la a0, __bss_start</span><br><span class="line">	la a1, _end</span><br><span class="line">	bgeu a0, a1, 2f</span><br><span class="line">1:</span><br><span class="line">	sw zero, (a0)</span><br><span class="line">	addi a0, a0, 4</span><br><span class="line">	bltu a0, a1, 1b</span><br><span class="line">2:</span><br><span class="line"></span><br><span class="line">    call _init</span><br><span class="line">    call main</span><br><span class="line"></span><br><span class="line">#ifdef SIMULATION</span><br><span class="line">    li x26, 0x01</span><br><span class="line">#endif</span><br><span class="line"></span><br><span class="line">loop:</span><br><span class="line">    j loop</span><br></pre></td></tr></table></figure>
+
+<p>第1行，定义.init段。</p>
+<p>第2行，声明全局符号_start。</p>
+<p>第3行，_start是一个函数。</p>
+<p>第5行，_start标签，用来指示start的地址。</p>
+<p>第8行，la是伪指令，对应到RISC-V汇编里是auipc和lw这两条指令，这里的作用是将__global_pointer标签的地址读入gp寄存器。</p>
+<p>第10行，将_sp的地址读入sp寄存器，sp寄存器的值在这里初始化。</p>
+<p>第12行，li是伪指令，对应到RISC-V汇编里是lui和addi这两条指令(或者只有lui这一条指令)，这里是将x26寄存器的值清零。</p>
+<p>第13行，将x27寄存器的值清零。</p>
+<p>第17行，加载_data_lma的地址(数据段的数据在flash的起始地址)到a0寄存器。</p>
+<p>第18行，加载_data的地址(数据段的数据在ram的起始地址)到a1寄存器。</p>
+<p>第19行，加载_edata的地址(数据段的结束地址)到a2寄存器。</p>
+<p>第20行，比较a1和a2的大小，如果a1大于等于a2，则跳转到第27行，否则往下执行。</p>
+<p>第22行，从a0地址处读4个字节到t0寄存器。</p>
+<p>第23行，将t0寄存器的值存入a1地址处。第22行、第23行的作用就是将一个word的数据从flash里搬到ram。</p>
+<p>第24行，a0的值加4，指向下一个word。</p>
+<p>第25行，a1的值加4，指向下一个word。</p>
+<p>第26行，比较a1和a2的大小，如果a1小于a2，则跳转到21行，否则往下执行。到这里就可以知道，第22行~第26行代码的作用就是将存在flash里的全部数据搬到ram里。</p>
+<p>第30行，将__bss_start的地址(bss段的起始地址)读到a0寄存器。</p>
+<p>第31行，将_end的地址(bss段的结束地址)读到a1寄存器。</p>
+<p>第32行，比较a0和a1的大小，如果a0大于等于a1，则跳转到第37行，否则往下执行。</p>
+<p>第34行，将a0地址处的内容清零。</p>
+<p>第35行，a0的值加4，指向下一个地址。</p>
+<p>第36行，比较a0和a1的大小，如果a0小于a1，则跳转到第33行，否则往下执行。到这里就知道，第33行~第36行的作用就是将bss段的内容全部清零。</p>
+<p>第39行，call是伪指令，语法：call rd, symbol。在这里会转换成在RISC-V汇编里的auipc和jalr这两条指令，作用是将PC+8的值保存到rd寄存器(默认为x1寄存器)，然后将PC设置为symbol的值，这样就实现了跳转并保存返回地址。这里是调用_init函数。</p>
+<p>第40行，调用main函数，这里就进入到C语言里的main函数了。</p>
+<p>第43行，设置x26寄存器的值为1，表示仿真结束。</p>
+<p>第46~47行，死循环，原地跳转。</p>
+<p>在这里要说明一下，上面启动代码里的从flash搬数据到ram和清零bss段这两块代码是嵌入式启动代码里非常常见的，也是比较通用的，必须要理解并掌握。</p>
+<h2 id="Makefile"><a href="#Makefile" class="headerlink" title="Makefile"></a>Makefile</h2><p>用过make命令来编译程序的应该都知道Makefile。Makefile文件里包含一系列目标构建规则，当我们在终端里输入make命令然后回车时make工具就会在当前目录下查找Makefile(或者makefile)文件，然后根据Makefile文件里的规则来构建目标。可以说，学习Makefile就是学习这些构建规则。</p>
+<p>Make可以管理工程的编译步骤，这样就不需要每次都输入一大串命令来编译程序了，编写好Makefile后，只需要输入make命令即可自动完成整个工程的编译、构建。可以这么说，是否掌握Makefile，从侧面反映出你是否具有管理代码工程的能力。</p>
+<p>关于Makefile的详细介绍网上已有不少，因此这里只作简单介绍。</p>
+<p>1.Makefile文件规则</p>
+<p>Makefile文件由一系列规则组成，每条规则如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">&lt;target&gt;:&lt;prerequisites&gt;</span><br><span class="line">[tab]&lt;commands&gt;</span><br></pre></td></tr></table></figure>
+
+<p>第一行里的target叫做目标，prerequisites叫做依赖。</p>
+<p>第二行以tab键缩进，后面跟着一条或多条命令，这里的命令是shell命令。</p>
+<p>简单来说就是，make需要生成对应的目标时，先查找其依赖是否都已经存在，如果都已经存在则执行命令，如果不存在则先去查找生成依赖的规则，如此不断地查找下去，直到所有依赖都生成完毕。</p>
+<p>1.1目标</p>
+<p>在一条规则里，目标是必须要有的，依赖和命令可有可无。</p>
+<p>当输入make命令不带任何参数时，make首先查找Makefile里的第一个目标，当然也可以指定目标，比如：</p>
+<p><code>make test</code></p>
+<p>来指定执行构建test目标。</p>
+<p>如果当前目录下刚好存在一个test文件，这时make不会构建Makefile文件里的test目标，这时就需要使用.PHONY来指定test为伪目标，例如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">.PHONY: test</span><br><span class="line">test:</span><br><span class="line">	ls</span><br></pre></td></tr></table></figure>
+
+<p>1.2依赖</p>
+<p>依赖可以是一个或者多个文件，又或者是一个或多个目标。如果依赖不存在或者依赖的时间戳比目标的时间戳新（依赖被更新过），则会重新构建目标。</p>
+<p>1.3命令</p>
+<p>命令通常是用来表示如何生成（更新）目标的，由一个或者多个shell命令组成。每行命令前必须有一个tab键（不是空格）。</p>
+<p>2.Makefile语法</p>
+<p>2.1注释</p>
+<p>Makefile中的注释和shell脚本中的注释一样，使用#符号表示注释的开始，注意Makeifle中只有单行注释，好比C语言中的//，如果需要多行注释则需要使用多个#号。</p>
+<p>2.2变量和赋值</p>
+<p>Makefile中可以使用=、?=、:=、+=这4种符号对变量进行赋值，这四种赋值的区别为：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">&#x3D;  表示在执行时再进行赋值</span><br><span class="line">:&#x3D; 表示在定义时就进行赋值</span><br><span class="line">?&#x3D; 表示在变量为空时才进行赋值</span><br><span class="line">+&#x3D; 表示将值追加到变量的尾部</span><br></pre></td></tr></table></figure>
+
+<p>对变量进行引用时使用$(变量)形式，比如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">VAR &#x3D; 123</span><br><span class="line">test:</span><br><span class="line">    echo $(VAR)</span><br></pre></td></tr></table></figure>
+
+<p>2.3内置变量</p>
+<p>make工具提供了一些内置变量，比如CC表示当前使用的编译器，MAKE表示当前使用的make工具，这些都是为了跨平台使用的。</p>
+<p>2.4自动变量</p>
+<p>make工具提供了一些自动变量，这些变量的值与当前的规则有关，即不同的规则这些变量的值可能就会不一样。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$@：表示完整的目标名字，包括后缀</span><br><span class="line">$&lt;：表示第一个依赖</span><br><span class="line">$^：表示所有依赖，每个依赖之间以空格隔开</span><br><span class="line">$?：表示比目标更新的所有依赖，每个依赖之间以空格隔开</span><br></pre></td></tr></table></figure>
+
+<p>2.5内置函数</p>
+<p>make工具提供了很多内置函数可以直接调用，这里列举以下一些函数。</p>
+<p>2.5.1wildcard函数</p>
+<p>扩展通配符函数，用法如下：</p>
+<p><code>cfiles := $(wildcard *.c)</code></p>
+<p>作用是匹配当前目录（不包含子目录）下所有.c文件，每个文件以空格隔开，然后赋值给cfiles变量。</p>
+<p>2.5.2patsubst函数</p>
+<p>替换通配符函数，结合wildcard函数用法如下：</p>
+<p><code>objs := $(patsubst %.c,%.o,$(wildcard *.c))</code></p>
+<p>作用是将当前目录（不包含子目录）下所有的.c文件替换成对应的.o文件，即将后缀为.c的文件替换为后缀为.o的文件，每个文件以空格隔开，然后赋值给objs变量。</p>
+<p>2.5.3abspath函数</p>
+<p>文件绝对路径函数，用法如下：</p>
+<p><code>path := $(abspath main.c)</code></p>
+<p>作用是获取当前目录下main.c文件的绝对路径（含文件名，结果比如：/work/main.c），然后赋值给path变量。</p>
+<p>Makefile的内容就介绍到这里，下面以tinyriscv项目里的tests/example/simple例程来具体分析。</p>
+<p>tests/example/simple/Makefile文件内容如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">RISCV_ARCH :&#x3D; rv32im</span><br><span class="line">RISCV_ABI :&#x3D; ilp32</span><br><span class="line">RISCV_MCMODEL :&#x3D; medlow</span><br><span class="line"></span><br><span class="line">TARGET &#x3D; simple</span><br><span class="line"></span><br><span class="line">CFLAGS +&#x3D; -DSIMULATION</span><br><span class="line">#CFLAGS +&#x3D; -O2</span><br><span class="line">#ASM_SRCS +&#x3D;</span><br><span class="line">#LDFLAGS +&#x3D;</span><br><span class="line">#INCLUDES +&#x3D; -I.</span><br><span class="line"></span><br><span class="line">C_SRCS :&#x3D; \</span><br><span class="line">	main.c \</span><br><span class="line"></span><br><span class="line">COMMON_DIR &#x3D; ..&#x2F;..&#x2F;bsp</span><br><span class="line">TOOLCHAIN_DIR &#x3D; ..&#x2F;..&#x2F;..</span><br><span class="line">include ..&#x2F;..&#x2F;bsp&#x2F;common.mk</span><br></pre></td></tr></table></figure>
+
+<p>可以看到都是一些变量赋值操作，需要注意的是第7行，这里的作用是定义SIMULATION这一个宏，对应C语言里的代码为：</p>
+<p><code>#define SIMULATION</code></p>
+<p>第18行，包含common.mk文件，类似于C语言里的#include操作。</p>
+<p>下面看一下common.mk文件：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br></pre></td><td class="code"><pre><span class="line"></span><br><span class="line">RISCV_TOOLS_PATH :&#x3D; $(TOOLCHAIN_DIR)&#x2F;tools&#x2F;gnu-mcu-eclipse-riscv-none-gcc-8.2.0-2.2-20190521-0004-win64&#x2F;bin</span><br><span class="line">RISCV_TOOLS_PREFIX :&#x3D; riscv-none-embed-</span><br><span class="line"></span><br><span class="line">RISCV_GCC     :&#x3D; $(abspath $(RISCV_TOOLS_PATH)&#x2F;$(RISCV_TOOLS_PREFIX)gcc)</span><br><span class="line">RISCV_AS      :&#x3D; $(abspath $(RISCV_TOOLS_PATH)&#x2F;$(RISCV_TOOLS_PREFIX)as)</span><br><span class="line">RISCV_GXX     :&#x3D; $(abspath $(RISCV_TOOLS_PATH)&#x2F;$(RISCV_TOOLS_PREFIX)g++)</span><br><span class="line">RISCV_OBJDUMP :&#x3D; $(abspath $(RISCV_TOOLS_PATH)&#x2F;$(RISCV_TOOLS_PREFIX)objdump)</span><br><span class="line">RISCV_GDB     :&#x3D; $(abspath $(RISCV_TOOLS_PATH)&#x2F;$(RISCV_TOOLS_PREFIX)gdb)</span><br><span class="line">RISCV_AR      :&#x3D; $(abspath $(RISCV_TOOLS_PATH)&#x2F;$(RISCV_TOOLS_PREFIX)ar)</span><br><span class="line">RISCV_OBJCOPY :&#x3D; $(abspath $(RISCV_TOOLS_PATH)&#x2F;$(RISCV_TOOLS_PREFIX)objcopy)</span><br><span class="line">RISCV_READELF :&#x3D; $(abspath $(RISCV_TOOLS_PATH)&#x2F;$(RISCV_TOOLS_PREFIX)readelf)</span><br><span class="line"></span><br><span class="line">.PHONY: all</span><br><span class="line">all: $(TARGET)</span><br><span class="line"></span><br><span class="line">ASM_SRCS +&#x3D; $(COMMON_DIR)&#x2F;start.S</span><br><span class="line">ASM_SRCS +&#x3D; $(COMMON_DIR)&#x2F;trap_entry.S</span><br><span class="line">C_SRCS +&#x3D; $(COMMON_DIR)&#x2F;init.c</span><br><span class="line">C_SRCS +&#x3D; $(COMMON_DIR)&#x2F;trap_handler.c</span><br><span class="line">C_SRCS +&#x3D; $(COMMON_DIR)&#x2F;lib&#x2F;utils.c</span><br><span class="line">C_SRCS +&#x3D; $(COMMON_DIR)&#x2F;lib&#x2F;xprintf.c</span><br><span class="line">C_SRCS +&#x3D; $(COMMON_DIR)&#x2F;lib&#x2F;uart.c</span><br><span class="line"></span><br><span class="line">LINKER_SCRIPT :&#x3D; $(COMMON_DIR)&#x2F;link.lds</span><br><span class="line"></span><br><span class="line">INCLUDES +&#x3D; -I$(COMMON_DIR)</span><br><span class="line"></span><br><span class="line">LDFLAGS +&#x3D; -T $(LINKER_SCRIPT) -nostartfiles -Wl,--gc-sections -Wl,--check-sections</span><br><span class="line"></span><br><span class="line">ASM_OBJS :&#x3D; $(ASM_SRCS:.S&#x3D;.o)</span><br><span class="line">C_OBJS :&#x3D; $(C_SRCS:.c&#x3D;.o)</span><br><span class="line"></span><br><span class="line">LINK_OBJS +&#x3D; $(ASM_OBJS) $(C_OBJS)</span><br><span class="line">LINK_DEPS +&#x3D; $(LINKER_SCRIPT)</span><br><span class="line"></span><br><span class="line">CLEAN_OBJS +&#x3D; $(TARGET) $(LINK_OBJS) $(TARGET).dump $(TARGET).bin</span><br><span class="line"></span><br><span class="line">CFLAGS +&#x3D; -march&#x3D;$(RISCV_ARCH)</span><br><span class="line">CFLAGS +&#x3D; -mabi&#x3D;$(RISCV_ABI)</span><br><span class="line">CFLAGS +&#x3D; -mcmodel&#x3D;$(RISCV_MCMODEL) -ffunction-sections -fdata-sections -fno-builtin-printf -fno-builtin-malloc</span><br><span class="line"></span><br><span class="line">$(TARGET): $(LINK_OBJS) $(LINK_DEPS) Makefile</span><br><span class="line">	$(RISCV_GCC) $(CFLAGS) $(INCLUDES) $(LINK_OBJS) -o $@ $(LDFLAGS)</span><br><span class="line">	$(RISCV_OBJCOPY) -O binary $@ $@.bin</span><br><span class="line">	$(RISCV_OBJDUMP) --disassemble-all $@ &gt; $@.dump</span><br><span class="line"></span><br><span class="line">$(ASM_OBJS): %.o: %.S</span><br><span class="line">	$(RISCV_GCC) $(CFLAGS) $(INCLUDES) -c -o $@ $&lt;</span><br><span class="line"></span><br><span class="line">$(C_OBJS): %.o: %.c</span><br><span class="line">	$(RISCV_GCC) $(CFLAGS) $(INCLUDES) -c -o $@ $&lt;</span><br><span class="line"></span><br><span class="line">.PHONY: clean</span><br><span class="line">clean:</span><br><span class="line">	rm -f $(CLEAN_OBJS)</span><br></pre></td></tr></table></figure>
+
+<p>第2~12行，作用是定义交叉工具链的路径，如果你的工具链路径跟这里的不一致，那就需要修改这几行。</p>
+<p>第14~15行，定义all目标，为默认（第一个）目标。</p>
+<p>第17~23行，把公共的C语言文件和汇编文件添加进来。</p>
+<p>第25行，指定链接脚本。</p>
+<p>第27行，指定头文件路径。</p>
+<p>第29行，指定链接参数。</p>
+<p>第31行，将ASM_SRCS变量里所有的.S文件替换成对应的.o文件。</p>
+<p>第32行，将C_SRCS变量里所有的.c文件替换成对应的.o文件。</p>
+<p>第39行，指定-march参数的值，这里为rv32im，即tinyriscv处理器支持的指令类型为整形(必须支持)和乘除(M扩展)。</p>
+<p>第40行，指定-mabi参数的值，这里为ilp32，即整型、长整型、指针都为32位。</p>
+<p>第43~46行，all目标的生成规则。</p>
+<p>第44行，编译生成目标的elf文件，即生成simple文件。</p>
+<p>第45行，根据elf文件生成bin文件，即生成simple.bin文件。</p>
+<p>第46行，将elf文件反汇编，即生成simple.dump文件。</p>
+<p>第48~49行，这个规则的作用是根据ASM_OBJS变量里的.o文件找到对应的.S文件，然后将该.S文件使用第49行的命令进行编译。</p>
+<p>第51<del>52行，与第48</del>49行类似，这个规则的作用是根据C_OBJS变量里的.o文件找到对应的.c文件，然后将该.c文件使用第52行的命令进行编译。</p>
+<p>第54~56行，定义clean目标，当在命令行输入make clean时就会执行这条规则，作用是删除所有的.o文件。</p>
+<p>common.mk是公共文件，所有的例程都会用到它。</p>
+<h2 id="链接脚本"><a href="#链接脚本" class="headerlink" title="链接脚本"></a>链接脚本</h2><p>我们所编写的代码最终要能被处理器执行，一般需要经过编译、汇编和链接这3个过程。其中链接这个过程是链接器（比如riscv32-unknown-elf-ld程序）做的，链接器在链接过程中需要一个文件来告诉自己需要将输入的代码、数据等内容如何输出到可执行文件（比如elf文件）中。这个文件就是链接脚本（linker script），链接脚本定义了内存布局和控制输入内容如何映射到输出文件。链接脚本文件一般以ld或者lds作为后缀。</p>
+<p>链接脚本与具体的处理器息息相关，每一家公司、个人开发的处理器所用到的链接脚本都有可能是不一样的。幸运的是，对于具体的处理器架构（ARM、RISC-V等），它们的链接脚本是大同小异的。如果你要设计一款处理器，那么链接脚本是必须要掌握的一门知识。</p>
+<p>链接脚本可以说是比较冷门的技术了，除了官方文档外几乎找不到更好的参考资料，因此要掌握好这门技术，这里建议是多多阅读不同处理器的链接脚本，多看看别人的链接脚本是怎么写的。掌握链接脚本可以让你对程序地址空间、加载和启动有更深的理解。</p>
+<p>这里并不会介绍链接脚本的全部内容，只会针对tinyriscv处理器的链接脚本涉及到的内容进行说明。</p>
+<p>链接脚本里有两个比较重要关键字，分别是MEMORY和SECTIONS。其中MEMORY用于描述内存（比如ROM、RAM、Flash等）布局，包括每一块内存的起始地址、大小和属性。SECTIONS用于描述输入段（input section）如何映射到输出段（output section）等。</p>
+<p>下面先看MEMORY的语法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">MEMORY</span><br><span class="line">&#123;</span><br><span class="line">　　&lt;name&gt; [(&lt;attr&gt;)] : ORIGIN &#x3D; &lt;origin&gt;, LENGTH &#x3D; &lt;len&gt;</span><br><span class="line">　　...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>name是内存块的名字，比如rom、ram、flash等名字。</p>
+<p>attr是该块内存的属性，有r(读)、w(写)、x(执行)等属性。</p>
+<p>origin是该块内存的起始地址，比如0x10000000。ORIGIN可以缩写成org。</p>
+<p>len是该块内存的大小，比如128K、1M等。LENGTH可以缩写成l。</p>
+<p>比如tinyriscv链接脚本的MEMORY是这样的：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">MEMORY</span><br><span class="line">&#123;</span><br><span class="line">  flash (wxa!ri) : ORIGIN &#x3D; 0x00000000, LENGTH &#x3D; 32K</span><br><span class="line">  ram (wxa!ri) :   ORIGIN &#x3D; 0x10000000, LENGTH &#x3D; 16K</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>下面看SECTIONS的语法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">SECTIONS</span><br><span class="line">&#123;</span><br><span class="line">　　&lt;sections−command&gt;</span><br><span class="line">　　&lt;sections−command&gt;</span><br><span class="line">　　...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>很简单，关键是里面的sections−command的语法：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">section [address] [(type)] :</span><br><span class="line">  [AT(lma)]</span><br><span class="line">  [ALIGN(section_align) | ALIGN_WITH_INPUT]</span><br><span class="line">  [SUBALIGN(subsection_align)]</span><br><span class="line">  [constraint]</span><br><span class="line">  &#123;</span><br><span class="line">    output-section-command</span><br><span class="line">    output-section-command</span><br><span class="line">    …</span><br><span class="line">  &#125; [&gt;region] [AT&gt;lma_region] [:phdr :phdr …] [&#x3D;fillexp] [,]</span><br></pre></td></tr></table></figure>
+
+<p>section：输出段名字，常见的有.text、.data、.bss等。</p>
+<p>address：输出段的虚拟内存地址（virtual memory address，VMA），即运行地址。</p>
+<p>AT(lma)：输出段的加载内存地址（load memory address，LMA），即存储地址。</p>
+<p>ALIGN：输出段对齐，以字节为单位。</p>
+<p>&gt;region：指定VMA地址。</p>
+<p>AT&gt;：指定LMA地址。</p>
+<p>这里说一下什么是VMA地址和LMA地址。通常情况下VMA地址等于LMA地址，有玩过ARM或者说STM32的应该知道，通过调试器是可以将程序下载到STM32的RAM里直接跑的，而不需要下载到Flash，这种在RAM里直接跑的程序在链接过程时VMA就等于LMA。这种直接在RAM里运行方式一般只适用于前期程序调试，当掉电后程序就会消失。当程序调试完毕后，此时就需要将程序固化到Flash里，这种需要固化到Flash里的程序在链接过程中就会有些数据（比如全局初始化不为零的data）的VMA地址不等于LMA地址，在程序启动的时候需要将这部分数据从Flash搬到RAM里。</p>
+<p>接下来结合实际的链接脚本来分析。看看tinyriscv链接脚本里的SECTIONS是怎样的，这里只列出一部分代码：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br></pre></td><td class="code"><pre><span class="line">SECTIONS</span><br><span class="line">&#123;</span><br><span class="line">   __stack_size &#x3D; DEFINED(__stack_size) ? __stack_size : 8K;</span><br><span class="line"></span><br><span class="line">  .init           :</span><br><span class="line">  &#123;</span><br><span class="line">    KEEP (*(SORT_NONE(.init)))</span><br><span class="line">  &#125; &gt;flash AT&gt;flash </span><br><span class="line"></span><br><span class="line">  .text           :</span><br><span class="line">  &#123;</span><br><span class="line">    *(.text.unlikely .text.unlikely.*)</span><br><span class="line">    *(.text.startup .text.startup.*)</span><br><span class="line">    *(.text .text.*)</span><br><span class="line">    *(.gnu.linkonce.t.*)</span><br><span class="line">  &#125; &gt;flash AT&gt;flash </span><br><span class="line"></span><br><span class="line">  . &#x3D; ALIGN(4);</span><br><span class="line"></span><br><span class="line">  PROVIDE (__etext &#x3D; .);</span><br><span class="line">  PROVIDE (_etext &#x3D; .);</span><br><span class="line">  PROVIDE (etext &#x3D; .);</span><br><span class="line">...</span><br><span class="line">  .data          :</span><br><span class="line">  &#123;</span><br><span class="line">    *(.rdata)</span><br><span class="line">    *(.rodata .rodata.*)</span><br><span class="line">    *(.gnu.linkonce.r.*)</span><br><span class="line">    *(.data .data.*)</span><br><span class="line">    *(.gnu.linkonce.d.*)</span><br><span class="line">    . &#x3D; ALIGN(8);</span><br><span class="line">    PROVIDE( __global_pointer$ &#x3D; . + 0x800 );</span><br><span class="line">    *(.sdata .sdata.*)</span><br><span class="line">    *(.gnu.linkonce.s.*)</span><br><span class="line">    . &#x3D; ALIGN(8);</span><br><span class="line">    *(.srodata.cst16)</span><br><span class="line">    *(.srodata.cst8)</span><br><span class="line">    *(.srodata.cst4)</span><br><span class="line">    *(.srodata.cst2)</span><br><span class="line">    *(.srodata .srodata.*)</span><br><span class="line">  &#125; &gt;ram AT&gt;flash </span><br><span class="line">...</span><br><span class="line">  .bss            :</span><br><span class="line">  &#123;</span><br><span class="line">    *(.sbss*)</span><br><span class="line">    *(.gnu.linkonce.sb.*)</span><br><span class="line">    *(.bss .bss.*)</span><br><span class="line">    *(.gnu.linkonce.b.*)</span><br><span class="line">    *(COMMON)</span><br><span class="line">    . &#x3D; ALIGN(4);</span><br><span class="line">  &#125; &gt;ram AT&gt;ram</span><br><span class="line">...</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>第3行，定义__stack_size变量，并将其赋值为8K。</p>
+<p>第5行，定义.init输出段。</p>
+<p>第7行，.init段里包含.init输入段。*号是通配符，KEEP的作用是告诉链接器保留这些输入段，不要优化掉。.init段在start.S文件中定义，从这里可以知道，启动代码放在了flash里的0x00000000地址处。这也知道tinyriscv的程序是从0x0地址开始运行的。</p>
+<p>第8行，这里的flash就是前面在MEMORY里定义的内存块，这里指定VMA地址在flash里，LMA地址也是flash里。</p>
+<p>第10~16行，应该比较好理解了，定义.text输出段，里面主要放的是代码，同样VMA和LMA地址也是在flash里。</p>
+<p>第18行，.符号在链接脚本里加做位置计数器，这个位置计数器只能向后移动，不能向前移动。这行代码的作用就是将位置计数器进行4字节对齐。</p>
+<p>第20~22行，PROVIDE的作用是导出全局符号，这里分别导出了3个符号，这些符号的值就等于当前位置计数器的值，这些符号可以被汇编、C语言代码引用。</p>
+<p>比如在链接脚本里PROVIDE了3个符号，分别是start_of_ROM、end_of_ROM、start_of_FLASH，在汇编程序里可以这样引用：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">la a0, start_of_ROM</span><br><span class="line">la a1, end_of_ROM</span><br><span class="line">la a2, start_of_FLASH</span><br></pre></td></tr></table></figure>
+
+<p>在C语言程序里可以这样引用：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">extern char start_of_ROM, end_of_ROM, start_of_FLASH;</span><br><span class="line"></span><br><span class="line">memcpy (&amp;start_of_FLASH, &amp;start_of_ROM, &amp;end_of_ROM - &amp;start_of_ROM);</span><br></pre></td></tr></table></figure>
+
+<p>或者这样引用：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">extern char start_of_ROM[], end_of_ROM[], start_of_FLASH[];</span><br><span class="line"></span><br><span class="line">memcpy (start_of_FLASH, start_of_ROM, end_of_ROM - start_of_ROM);</span><br></pre></td></tr></table></figure>
+
+<p>第24~41行，定义.data段，这里的data段的LMA地址不等于VMA地址，VMA地址在ram里，LMA地址在flash里。</p>
+<p>第43~51行，定义.bss段，bss段包含一些在程序里全局定义但没有初始化的变量。LMA地址等于VMA地址，都在ram里。</p>
+<h2 id="启动代码"><a href="#启动代码" class="headerlink" title="启动代码"></a>启动代码</h2><p>启动代码在<strong>RISC-V汇编语言</strong>那一节已经分析过了，这里就不再重复了。</p>
+<h2 id="异常和中断"><a href="#异常和中断" class="headerlink" title="异常和中断"></a>异常和中断</h2><p>在RISC-V里，异常（exception）和中断（interrupt）统称为陷阱（trap），这里的异常又可以称作同步中断，而中断是指异步中断。说到异常和中断，就不得不提RISC-V的特权级别（Privilege Levels）了，RISC-V架构目前一共定义了3种特权级别，由低到高分别是用户、监督者和机器级别（模式）。其中机器模式是必须要实现的，监督者和用户模式根据不同的软件系统需求来实现。一般来说，如果是简单的嵌入式系统，则只需要实现机器模式，如果是安全系统，则需要实现机器和监督者模式，如果是类Unix系统，则这3种模式都要实现。每一种特权级别都有其对应的指令集扩展和CSR寄存器（Control and Status Registers）。由于tinyriscv处理器只实现了机器模式，因此这里只介绍机器模式相关的内容。</p>
+<p>先看一些跟中断和异常相关的比较重要的CSR寄存器。注意，机器模式相关的CSR寄存器都是以m字母开头的。</p>
+<h3 id="mstatus（Machine-Status-Register）"><a href="#mstatus（Machine-Status-Register）" class="headerlink" title="mstatus（Machine Status Register）"></a>mstatus（Machine Status Register）</h3><p>mstatus[3]：MIE，全局中断使能位，可读可写，该位决定了整个核的中断（异常）是否使能。该位对一些不可屏蔽的中断（NMI）是无效的，比如一些会引起硬件错误的中断（异常）。</p>
+<h3 id="mie（Machine-Interrupt-Enable-Register）"><a href="#mie（Machine-Interrupt-Enable-Register）" class="headerlink" title="mie（Machine Interrupt Enable Register）"></a>mie（Machine Interrupt Enable Register）</h3><p>mie[3]：MSIE，软件中断使能位，可读可写。</p>
+<p>mie[7]：MTIE，定时器中断使能位，可读可写。</p>
+<p>mie[11]：MEIE，外部中断使能位，可读可写。</p>
+<h3 id="mip（Machine-Interrupt-Pending-Register）"><a href="#mip（Machine-Interrupt-Pending-Register）" class="headerlink" title="mip（Machine Interrupt Pending Register）"></a>mip（Machine Interrupt Pending Register）</h3><p>mip[3]：MSIP，软件中断pending位，只读。</p>
+<p>mip[7]：MTIP，定时器中断pending位，只读。</p>
+<p>mip[11]：MEIP，外部中断pending位，只读。</p>
+<h3 id="mtvec（Machine-Trap-Vector-Base-Address-Register）"><a href="#mtvec（Machine-Trap-Vector-Base-Address-Register）" class="headerlink" title="mtvec（Machine Trap-Vector Base-Address Register）"></a>mtvec（Machine Trap-Vector Base-Address Register）</h3><p>mtvec[31:2]：中断入口基地址，可读可写，必须4字节对齐。</p>
+<p>mtvec[1:0]：中断向量模式，可读可写，当mtvec[1:0]=00时为直接模式，此时所有的异常和中断入口地址都为mtvec[31:2]的值。当mtvec[1:0]=01时为向量模式，所有异常的入口地址为mtvec[31:2]的值，而所有中断的入口地址为mtvec[31:2] + causex4，其中cause为中断号。tinyriscv实现的是直接模式。</p>
+<h3 id="mcause（Machine-Cause-Register）"><a href="#mcause（Machine-Cause-Register）" class="headerlink" title="mcause（Machine Cause Register）"></a>mcause（Machine Cause Register）</h3><p>mcause[31]：中断位，可读可写，表示当trap发生时，该trap中断还是异常，1表示中断，0表示异常。</p>
+<p>mcause[30:0]：中断号，可读可写，表示trap发生时所对应的中断（异常）号。比如定时器中断号为7，外部中断号为11，非法指令异常号为2等等。</p>
+<p>在中断入口函数里通过读这个寄存器的值就可以知道当前发生的是哪个中断或异常。</p>
+<h3 id="mepc（Machine-Exception-Program-Counter）"><a href="#mepc（Machine-Exception-Program-Counter）" class="headerlink" title="mepc（Machine Exception Program Counter）"></a>mepc（Machine Exception Program Counter）</h3><p>该寄存器保存中断（异常）返回时PC指针的值，即MCU处理完中断（异常）后从该寄存器所指的地址处继续执行。</p>
+<h3 id="中断（异常）代码分析"><a href="#中断（异常）代码分析" class="headerlink" title="中断（异常）代码分析"></a>中断（异常）代码分析</h3><p>下面看一下tinyriscv中断处理相关的代码。</p>
+<p>首先是中断初始化相关的，启动代码start.S文件里有这么一行代码：</p>
+<p><code>call _init</code></p>
+<p>意思是调用_init()函数，这个函数在init.c文件里定义：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">extern void trap_entry();</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">void _init()</span><br><span class="line">&#123;</span><br><span class="line">    &#x2F;&#x2F; 设置中断入口函数</span><br><span class="line">    write_csr(mtvec, &amp;trap_entry);</span><br><span class="line">    &#x2F;&#x2F; 使能CPU全局中断</span><br><span class="line">    &#x2F;&#x2F; MIE &#x3D; 1, MPIE &#x3D; 1, MPP &#x3D; 11</span><br><span class="line">    write_csr(mstatus, 0x1888);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>第7行，通过写mtvec寄存器来设置中断入口函数地址，这里的中断入口函数为trap_entry。</p>
+<p>第10行，写mstatus的bit3来使能全局中断。</p>
+<p>接下来看中断处理相关的，中断处理函数trap_entry定义在trap_entry.S文件里：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br></pre></td><td class="code"><pre><span class="line">#define REGBYTES  4</span><br><span class="line">#define STORE     sw</span><br><span class="line">#define LOAD      lw</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">    .section      .text.entry	</span><br><span class="line">    .align 2</span><br><span class="line">    .global trap_entry</span><br><span class="line">trap_entry:</span><br><span class="line"></span><br><span class="line">    addi sp, sp, -32*REGBYTES</span><br><span class="line"></span><br><span class="line">    STORE x1, 1*REGBYTES(sp)</span><br><span class="line">    STORE x2, 2*REGBYTES(sp)</span><br><span class="line">    STORE x3, 3*REGBYTES(sp)</span><br><span class="line">    STORE x4, 4*REGBYTES(sp)</span><br><span class="line">    STORE x5, 5*REGBYTES(sp)</span><br><span class="line">    STORE x6, 6*REGBYTES(sp)</span><br><span class="line">    STORE x7, 7*REGBYTES(sp)</span><br><span class="line">    STORE x8, 8*REGBYTES(sp)</span><br><span class="line">    STORE x9, 9*REGBYTES(sp)</span><br><span class="line">    STORE x10, 10*REGBYTES(sp)</span><br><span class="line">    STORE x11, 11*REGBYTES(sp)</span><br><span class="line">    STORE x12, 12*REGBYTES(sp)</span><br><span class="line">    STORE x13, 13*REGBYTES(sp)</span><br><span class="line">    STORE x14, 14*REGBYTES(sp)</span><br><span class="line">    STORE x15, 15*REGBYTES(sp)</span><br><span class="line">    STORE x16, 16*REGBYTES(sp)</span><br><span class="line">    STORE x17, 17*REGBYTES(sp)</span><br><span class="line">    STORE x18, 18*REGBYTES(sp)</span><br><span class="line">    STORE x19, 19*REGBYTES(sp)</span><br><span class="line">    STORE x20, 20*REGBYTES(sp)</span><br><span class="line">    STORE x21, 21*REGBYTES(sp)</span><br><span class="line">    STORE x22, 22*REGBYTES(sp)</span><br><span class="line">    STORE x23, 23*REGBYTES(sp)</span><br><span class="line">    STORE x24, 24*REGBYTES(sp)</span><br><span class="line">    STORE x25, 25*REGBYTES(sp)</span><br><span class="line">#ifndef SIMULATION</span><br><span class="line">    STORE x26, 26*REGBYTES(sp)</span><br><span class="line">    STORE x27, 27*REGBYTES(sp)</span><br><span class="line">#endif</span><br><span class="line">    STORE x28, 28*REGBYTES(sp)</span><br><span class="line">    STORE x29, 29*REGBYTES(sp)</span><br><span class="line">    STORE x30, 30*REGBYTES(sp)</span><br><span class="line">    STORE x31, 31*REGBYTES(sp)</span><br><span class="line"></span><br><span class="line">    csrr a0, mcause</span><br><span class="line">    csrr a1, mepc</span><br><span class="line">test_if_asynchronous:</span><br><span class="line">	srli a2, a0, 31		                &#x2F;* MSB of mcause is 1 if handing an asynchronous interrupt - shift to LSB to clear other bits. *&#x2F;</span><br><span class="line">	beq a2, x0, handle_synchronous		&#x2F;* Branch past interrupt handing if not asynchronous. *&#x2F;</span><br><span class="line"></span><br><span class="line">    call interrupt_handler</span><br><span class="line">    j asynchronous_return</span><br><span class="line"></span><br><span class="line">handle_synchronous:</span><br><span class="line">    call exception_handler</span><br><span class="line">    addi a1, a1, 4</span><br><span class="line">    csrw mepc, a1</span><br><span class="line"></span><br><span class="line">asynchronous_return:</span><br><span class="line">    LOAD x1, 1*REGBYTES(sp)</span><br><span class="line">    LOAD x2, 2*REGBYTES(sp)</span><br><span class="line">    LOAD x3, 3*REGBYTES(sp)</span><br><span class="line">    LOAD x4, 4*REGBYTES(sp)</span><br><span class="line">    LOAD x5, 5*REGBYTES(sp)</span><br><span class="line">    LOAD x6, 6*REGBYTES(sp)</span><br><span class="line">    LOAD x7, 7*REGBYTES(sp)</span><br><span class="line">    LOAD x8, 8*REGBYTES(sp)</span><br><span class="line">    LOAD x9, 9*REGBYTES(sp)</span><br><span class="line">    LOAD x10, 10*REGBYTES(sp)</span><br><span class="line">    LOAD x11, 11*REGBYTES(sp)</span><br><span class="line">    LOAD x12, 12*REGBYTES(sp)</span><br><span class="line">    LOAD x13, 13*REGBYTES(sp)</span><br><span class="line">    LOAD x14, 14*REGBYTES(sp)</span><br><span class="line">    LOAD x15, 15*REGBYTES(sp)</span><br><span class="line">    LOAD x16, 16*REGBYTES(sp)</span><br><span class="line">    LOAD x17, 17*REGBYTES(sp)</span><br><span class="line">    LOAD x18, 18*REGBYTES(sp)</span><br><span class="line">    LOAD x19, 19*REGBYTES(sp)</span><br><span class="line">    LOAD x20, 20*REGBYTES(sp)</span><br><span class="line">    LOAD x21, 21*REGBYTES(sp)</span><br><span class="line">    LOAD x22, 22*REGBYTES(sp)</span><br><span class="line">    LOAD x23, 23*REGBYTES(sp)</span><br><span class="line">    LOAD x24, 24*REGBYTES(sp)</span><br><span class="line">    LOAD x25, 25*REGBYTES(sp)</span><br><span class="line">#ifndef SIMULATION</span><br><span class="line">    LOAD x26, 26*REGBYTES(sp)</span><br><span class="line">    LOAD x27, 27*REGBYTES(sp)</span><br><span class="line">#endif</span><br><span class="line">    LOAD x28, 28*REGBYTES(sp)</span><br><span class="line">    LOAD x29, 29*REGBYTES(sp)</span><br><span class="line">    LOAD x30, 30*REGBYTES(sp)</span><br><span class="line">    LOAD x31, 31*REGBYTES(sp)</span><br><span class="line"></span><br><span class="line">    addi sp, sp, 32*REGBYTES</span><br><span class="line"></span><br><span class="line">    mret</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">.weak interrupt_handler</span><br><span class="line">interrupt_handler:</span><br><span class="line">1:</span><br><span class="line">    j 1b</span><br><span class="line"></span><br><span class="line">.weak exception_handler</span><br><span class="line">exception_handler:</span><br><span class="line">2:</span><br><span class="line">    j 2b</span><br></pre></td></tr></table></figure>
+
+<p>第11行，将sp往低地址移动32个word，腾出来的栈空间用来保存通用寄存器的值。</p>
+<p>第13<del>45行，将x1</del>x31寄存器的值保存到栈里面，即保护现场。</p>
+<p>第47行，把mcause的值读到a0寄存器里面。</p>
+<p>第48行，把mepc的值读到a1寄存器里面。</p>
+<p>第50行，将a0寄存器的值逻辑右移31位，然后将右移后的值存到a2寄存器。</p>
+<p>第51行，判断a2的值是否等于0，即判断当前trap是中断还是异常，如果等于0（是异常）则跳转到第56行，否则（是中断）继续往下执行。</p>
+<p>第53行，调用interrupt_handler()函数，该函数在trap_handler.c文件里定义：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">void interrupt_handler(uint32_t mcause, uint32_t mepc)</span><br><span class="line">&#123;</span><br><span class="line">    &#x2F;&#x2F; we have only timer0 interrupt here</span><br><span class="line">    timer0_irq_handler();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>因为目前tinyriscv只有定时器0外设这个中断，所以这里面直接调用timer0_irq_handler()函数。timer0_irq_handler()函数在timer_int这个例程的main.c里定义：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">void timer0_irq_handler()</span><br><span class="line">&#123;</span><br><span class="line">    TIMER0_REG(TIMER0_CTRL) |&#x3D; (1 &lt;&lt; 2) | (1 &lt;&lt; 0);  &#x2F;&#x2F; clear int pending and start timer</span><br><span class="line"></span><br><span class="line">    count++;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>回到trap_entry.S文件。</p>
+<p>第54行，跳转操作，跳转到第61行。</p>
+<p>第62<del>96行，从栈里恢复x1</del>x31寄存器的值，也就是进入中断前这些寄存器的值。</p>
+<p>第98行，中断返回指令。</p>
+<p>目前tinyriscv的中断处理流程就是这样的了，下面再看一下异常处理流程。</p>
+<p>前面说到当进入trap_entry()函数时，如果mcause的bit31等于0，则会跳转到第56行。</p>
+<p>第57行，调用exception_handler()函数：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">void exception_handler(uint32_t mcause, uint32_t mepc)</span><br><span class="line">&#123;</span><br><span class="line">    if ((mcause !&#x3D; TRAP_BREAKPOINT) &amp;&amp; (mcause !&#x3D; TRAP_ECALL_M))</span><br><span class="line">        while (1);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>第3行，判断当前异常是否是由ebreak或者ecall指令导致的，如果是则什么都不处理，直接返回，否则调用第4行，进入死循环。</p>
+<p>第58行，将a1寄存器的值加4。</p>
+<p>第59行，将a1寄存器的值写入mepc寄存器，即将中断（异常）返回地址加4，指向下一条指令。</p>
+<p>到这里，中断和异常的部分就分析完了。</p>
+<p>最后说一下，进入中断（异常）时，硬件会把全局中断使能关了，因此在处理中断（异常）过程中默认是不会响应其他中断的，在中断（异常）返回时硬件才会重新使能全局中断。如果要实现中断嵌套（抢占）功能，则需要在中断处理函数里使能全局中断，并且硬件上要实现中断优先级功能。</p>
+<h1 id="实践篇"><a href="#实践篇" class="headerlink" title="实践篇"></a>实践篇</h1><h2 id="移植tinyriscv到FPGA"><a href="#移植tinyriscv到FPGA" class="headerlink" title="移植tinyriscv到FPGA"></a>移植tinyriscv到FPGA</h2><p>这里只介绍xilinx vivado平台的移植，详见tinyriscv项目的fpga/README.md文件。</p>
+<h2 id="编写和运行C语言程序"><a href="#编写和运行C语言程序" class="headerlink" title="编写和运行C语言程序"></a>编写和运行C语言程序</h2><p>C语言的例程都在tests/example目录里，其中include、lib为公共目录，所有例程都依赖这两个目录。</p>
+<p>当所需编写一个新的例程（程序）时，可以通过以下步骤：</p>
+<p>1.拷贝simple这个例程，然后改成自己想要的名字。</p>
+<p>2.接着修改Makefile文件：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">...</span><br><span class="line">TARGET &#x3D; simple</span><br><span class="line"></span><br><span class="line">CFLAGS +&#x3D; -DSIMULATION</span><br><span class="line">#CFLAGS +&#x3D; -O2</span><br><span class="line">#ASM_SRCS +&#x3D;</span><br><span class="line">#LDFLAGS +&#x3D;</span><br><span class="line">#INCLUDES +&#x3D; -I.</span><br><span class="line"></span><br><span class="line">C_SRCS :&#x3D; \</span><br><span class="line">	main.c \</span><br><span class="line">...</span><br></pre></td></tr></table></figure>
+
+<p>修改第2行，这个TARGET就是程序编译后生成的bin文件名字，这里是simple.bin。</p>
+<p>修改第4行，CFLAGS是编译选项，这里的simple例程默认作为仿真使用，所以需要定义SIMULATION宏。</p>
+<p>修改第6行，将需要编译的汇编文件全部添加到这里。</p>
+<p>修改第8行，将涉及的头文件路径全部添加到这里。</p>
+<p>修改第10行，将需要编译的c文件全部添加到这里。</p>
+<p>3.打开终端，进入到例程的根目录，先输入make clean命令再输入make命令即可编译程序。</p>
+<p>由于tinyriscv是支持通过jtag下载程序的，因此在fpga综合、实现时不需要预先读入程序(bin)文件，只需要在下载完bitstream文件后连上jtag和openocd，即可通过openocd的load_image命令下载程序。这样的好处是，当需要更新程序时不需要重新综合、实现，可以节省很多时间。</p>
+<h2 id="移植FreeRTOS"><a href="#移植FreeRTOS" class="headerlink" title="移植FreeRTOS"></a>移植FreeRTOS</h2><p>freertos是一款轻量级的实时嵌入式操作系统，支持多个平台（X86、ARM、RISC-V等）和多种编译器、编译环境（GCC、KEIL、IAR等），具有可配置、任务管理、信号量、消息队列、内存管理和软件定时器等功能。freertos遵循MIT开源协议。</p>
+<p>鉴于freertos的国内外的知名度和代码的精简度，这里选择它作为tinyriscv支持的首个RTOS。</p>
+<p>目前freertos已经支持好几款RISC-V开发板（处理器）了，比如SiFive的HiFive1_RevB，NXP的Vega。这样的话，在移植freertos到其他RISC-V处理器或者开发板时就不需要从零开始了，直接在其中一个的基础上修改就可以了。事实上，tinyriscv就是这么做的。</p>
+<p>RISC-V的中断（异常）架构与ARM相比，其中有一点是做得非常好的，那就是RISC-V的中断（异常）入口地址是可以通过软件修改的（修改mtvec寄存器的值），而不像ARM那样硬件设计好了就不能变了。这样的好处是，在移植freertos时就可以共用原有（其他例程）的启动代码，只需要在系统初始化时设置mtvec为freertos的中断入口地址就可以了。</p>
+<p>下面开始分析freertos的代码，先看初始化过程。</p>
+<p>tinyriscv的启动代码前面已经分析过了，这里就直接从main()函数开始看了。先给出主要的函数调用层次关系。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">examples&#x2F;FreeRTOS&#x2F;Demo&#x2F;tinyriscv_GCC&#x2F;main.c(main()--&gt;main_blinky())</span><br><span class="line">--examples&#x2F;FreeRTOS&#x2F;Demo&#x2F;tinyriscv_GCC&#x2F;blinky_demo&#x2F;main_blinky.c(main_blinky()--&gt;vTaskStartScheduler())</span><br><span class="line">----examples&#x2F;FreeRTOS&#x2F;Source&#x2F;tasks.c(vTaskStartScheduler()--&gt;xPortStartScheduler())</span><br><span class="line">------examples&#x2F;FreeRTOS&#x2F;Source&#x2F;portable&#x2F;RISC-V&#x2F;port.c(xPortStartScheduler()--&gt;xPortStartFirstTask())</span><br><span class="line">--------examples&#x2F;FreeRTOS&#x2F;Source&#x2F;portable&#x2F;RISC-V&#x2F;portASM.S(xPortStartFirstTask())</span><br></pre></td></tr></table></figure>
+
+<p>main()函数的定义：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">int main( void )</span><br><span class="line">&#123;</span><br><span class="line">	prvSetupHardware();</span><br><span class="line"></span><br><span class="line">	&#x2F;* The mainCREATE_SIMPLE_BLINKY_DEMO_ONLY setting is described at the top</span><br><span class="line">	of this file. *&#x2F;</span><br><span class="line">	#if( mainCREATE_SIMPLE_BLINKY_DEMO_ONLY &#x3D;&#x3D; 1 )</span><br><span class="line">	&#123;</span><br><span class="line">		main_blinky();</span><br><span class="line">	&#125;</span><br><span class="line">	#else</span><br><span class="line">	&#123;</span><br><span class="line">		main_full();</span><br><span class="line">	&#125;</span><br><span class="line">	#endif</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>第3行，调用prvSetupHardware()函数，这个函数里只做了一件事情，就是将LED对应的GPIO设置为输出模式。</p>
+<p>第7行，条件成立。这个demo实现（移植）的就是简单的LED闪灯功能，只不过是通过两个任务来实现。一个任务作为发送者，另一个任务作为接收者，发送者每隔一段时间向接收者发送一个消息，接收者收到这个消息后，判断是否是想要的消息，如果是则将LED所在的GPIO电平取反。</p>
+<p>第9行，调用main_blinky()函数：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line">void main_blinky( void )</span><br><span class="line">&#123;</span><br><span class="line">	&#x2F;* Create the queue. *&#x2F;</span><br><span class="line">	xQueue &#x3D; xQueueCreate( mainQUEUE_LENGTH, sizeof( uint32_t ) );</span><br><span class="line"></span><br><span class="line">	if( xQueue !&#x3D; NULL )</span><br><span class="line">	&#123;</span><br><span class="line">		&#x2F;* Start the two tasks as described in the comments at the top of this</span><br><span class="line">		file. *&#x2F;</span><br><span class="line">		xTaskCreate( prvQueueReceiveTask,				&#x2F;* The function that implements the task. *&#x2F;</span><br><span class="line">					&quot;Rx&quot;, 								&#x2F;* The text name assigned to the task - for debug only as it is not used by the kernel. *&#x2F;</span><br><span class="line">					configMINIMAL_STACK_SIZE, 			&#x2F;* The size of the stack to allocate to the task. *&#x2F;</span><br><span class="line">					NULL, 								&#x2F;* The parameter passed to the task - not used in this case. *&#x2F;</span><br><span class="line">					mainQUEUE_RECEIVE_TASK_PRIORITY, 	&#x2F;* The priority assigned to the task. *&#x2F;</span><br><span class="line">					NULL );								&#x2F;* The task handle is not required, so NULL is passed. *&#x2F;</span><br><span class="line"></span><br><span class="line">		xTaskCreate( prvQueueSendTask, &quot;TX&quot;, configMINIMAL_STACK_SIZE, NULL, mainQUEUE_SEND_TASK_PRIORITY, NULL );</span><br><span class="line"></span><br><span class="line">		&#x2F;* Start the tasks and timer running. *&#x2F;</span><br><span class="line">		vTaskStartScheduler();</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	&#x2F;* If all is well, the scheduler will now be running, and the following</span><br><span class="line">	line will never be reached.  If the following line does execute, then</span><br><span class="line">	there was insufficient FreeRTOS heap memory available for the Idle and&#x2F;or</span><br><span class="line">	timer tasks to be created.  See the memory management section on the</span><br><span class="line">	FreeRTOS web site for more details on the FreeRTOS heap</span><br><span class="line">	http:&#x2F;&#x2F;www.freertos.org&#x2F;a00111.html. *&#x2F;</span><br><span class="line">	for( ;; );</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>这里并不会具体分析freertos代码的实现，只有涉及到移植相关的才会详细说明。</p>
+<p>第4行，创建队列，发送任务和接收任务会利用这个队列会来收发数据。</p>
+<p>第10行，创建接收任务。</p>
+<p>第17行，创建发送任务。</p>
+<p>第20行，开始任务调度，vTaskStartScheduler()这个函数代码比较长，这里就不贴代码了。这里面有一个很重要的操作，就是调用xPortStartScheduler()函数：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">BaseType_t xPortStartScheduler( void )</span><br><span class="line">&#123;</span><br><span class="line">extern void xPortStartFirstTask( void );</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">	&#x2F;* If there is a CLINT then it is ok to use the default implementation</span><br><span class="line">	in this file, otherwise vPortSetupTimerInterrupt() must be implemented to</span><br><span class="line">	configure whichever clock is to be used to generate the tick interrupt. *&#x2F;</span><br><span class="line">	vPortSetupTimerInterrupt();</span><br><span class="line">...</span><br><span class="line"></span><br><span class="line">	xPortStartFirstTask();</span><br><span class="line"></span><br><span class="line">	&#x2F;* Should not get here as after calling xPortStartFirstTask() only tasks</span><br><span class="line">	should be executing. *&#x2F;</span><br><span class="line">	return pdFAIL;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>第9行，调用vPortSetupTimerInterrupt()函数，在这个函数里需要初始化操作系统的systick定时器并启动。</p>
+<p>第12行，xPortStartFirstTask()函数是用汇编语言实现的，这个函数跟移植密切相关，这里分析一下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br></pre></td><td class="code"><pre><span class="line">.func</span><br><span class="line">xPortStartFirstTask:</span><br><span class="line"></span><br><span class="line">#if( portasmHAS_SIFIVE_CLINT !&#x3D; 0 )</span><br><span class="line">	&#x2F;* If there is a clint then interrupts can branch directly to the FreeRTOS</span><br><span class="line">	trap handler.  Otherwise the interrupt controller will need to be configured</span><br><span class="line">	outside of this file. *&#x2F;</span><br><span class="line">	la t0, freertos_risc_v_trap_handler</span><br><span class="line">	csrw mtvec, t0</span><br><span class="line">#endif &#x2F;* portasmHAS_CLILNT *&#x2F;</span><br><span class="line"></span><br><span class="line">	load_x  sp, pxCurrentTCB			&#x2F;* Load pxCurrentTCB. *&#x2F;</span><br><span class="line">	load_x  sp, 0( sp )				 	&#x2F;* Read sp from first TCB member. *&#x2F;</span><br><span class="line"></span><br><span class="line">	load_x  x1, 0( sp ) &#x2F;* Note for starting the scheduler the exception return address is used as the function return address. *&#x2F;</span><br><span class="line"></span><br><span class="line">	portasmRESTORE_ADDITIONAL_REGISTERS	&#x2F;* Defined in freertos_risc_v_chip_specific_extensions.h to restore any registers unique to the RISC-V implementation. *&#x2F;</span><br><span class="line"></span><br><span class="line">	load_x  t0, 29 * portWORD_SIZE( sp )	&#x2F;* mstatus *&#x2F;</span><br><span class="line">	addi t0, t0, 0x08						&#x2F;* Set MIE bit so the first task starts with interrupts enabled - required as returns with ret not eret. *&#x2F;</span><br><span class="line">	csrrw  x0, mstatus, t0					&#x2F;* Interrupts enabled from here! *&#x2F;</span><br><span class="line"></span><br><span class="line">	load_x  x5, 2 * portWORD_SIZE( sp )		&#x2F;* t0 *&#x2F;</span><br><span class="line">	load_x  x6, 3 * portWORD_SIZE( sp )		&#x2F;* t1 *&#x2F;</span><br><span class="line">	load_x  x7, 4 * portWORD_SIZE( sp )		&#x2F;* t2 *&#x2F;</span><br><span class="line">	load_x  x8, 5 * portWORD_SIZE( sp )		&#x2F;* s0&#x2F;fp *&#x2F;</span><br><span class="line">	load_x  x9, 6 * portWORD_SIZE( sp )		&#x2F;* s1 *&#x2F;</span><br><span class="line">	load_x  x10, 7 * portWORD_SIZE( sp )	&#x2F;* a0 *&#x2F;</span><br><span class="line">	load_x  x11, 8 * portWORD_SIZE( sp )	&#x2F;* a1 *&#x2F;</span><br><span class="line">	load_x  x12, 9 * portWORD_SIZE( sp )	&#x2F;* a2 *&#x2F;</span><br><span class="line">	load_x  x13, 10 * portWORD_SIZE( sp )	&#x2F;* a3 *&#x2F;</span><br><span class="line">	load_x  x14, 11 * portWORD_SIZE( sp )	&#x2F;* a4 *&#x2F;</span><br><span class="line">	load_x  x15, 12 * portWORD_SIZE( sp )	&#x2F;* a5 *&#x2F;</span><br><span class="line">	load_x  x16, 13 * portWORD_SIZE( sp )	&#x2F;* a6 *&#x2F;</span><br><span class="line">	load_x  x17, 14 * portWORD_SIZE( sp )	&#x2F;* a7 *&#x2F;</span><br><span class="line">	load_x  x18, 15 * portWORD_SIZE( sp )	&#x2F;* s2 *&#x2F;</span><br><span class="line">	load_x  x19, 16 * portWORD_SIZE( sp )	&#x2F;* s3 *&#x2F;</span><br><span class="line">	load_x  x20, 17 * portWORD_SIZE( sp )	&#x2F;* s4 *&#x2F;</span><br><span class="line">	load_x  x21, 18 * portWORD_SIZE( sp )	&#x2F;* s5 *&#x2F;</span><br><span class="line">	load_x  x22, 19 * portWORD_SIZE( sp )	&#x2F;* s6 *&#x2F;</span><br><span class="line">	load_x  x23, 20 * portWORD_SIZE( sp )	&#x2F;* s7 *&#x2F;</span><br><span class="line">	load_x  x24, 21 * portWORD_SIZE( sp )	&#x2F;* s8 *&#x2F;</span><br><span class="line">	load_x  x25, 22 * portWORD_SIZE( sp )	&#x2F;* s9 *&#x2F;</span><br><span class="line">	load_x  x26, 23 * portWORD_SIZE( sp )	&#x2F;* s10 *&#x2F;</span><br><span class="line">	load_x  x27, 24 * portWORD_SIZE( sp )	&#x2F;* s11 *&#x2F;</span><br><span class="line">	load_x  x28, 25 * portWORD_SIZE( sp )	&#x2F;* t3 *&#x2F;</span><br><span class="line">	load_x  x29, 26 * portWORD_SIZE( sp )	&#x2F;* t4 *&#x2F;</span><br><span class="line">	load_x  x30, 27 * portWORD_SIZE( sp )	&#x2F;* t5 *&#x2F;</span><br><span class="line">	load_x  x31, 28 * portWORD_SIZE( sp )	&#x2F;* t6 *&#x2F;</span><br><span class="line">	addi	sp, sp, portCONTEXT_SIZE</span><br><span class="line">	ret</span><br><span class="line">	.endfunc</span><br></pre></td></tr></table></figure>
+
+<p>第4行，条件成立。</p>
+<p>第8~9行，将mtvec的值设置为freertos_risc_v_trap_handler()函数的地址，即中断（异常）入口函数为freertos_risc_v_trap_handler()。</p>
+<p>后面的代码会将当前TCB里保存的寄存器值恢复到对应的寄存器，当xPortStartFirstTask()函数返回后就会执行当前（pxCurrentTCB所指的）任务。</p>
+<p>到这里，我们就可以知道接下来的重点就是freertos_risc_v_trap_handler()函数，这个函数的代码也是比较长，这里只列出tinyriscv用到的部分：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br><span class="line">60</span><br><span class="line">61</span><br><span class="line">62</span><br><span class="line">63</span><br><span class="line">64</span><br><span class="line">65</span><br><span class="line">66</span><br><span class="line">67</span><br><span class="line">68</span><br><span class="line">69</span><br><span class="line">70</span><br><span class="line">71</span><br><span class="line">72</span><br><span class="line">73</span><br><span class="line">74</span><br><span class="line">75</span><br><span class="line">76</span><br><span class="line">77</span><br><span class="line">78</span><br><span class="line">79</span><br><span class="line">80</span><br><span class="line">81</span><br><span class="line">82</span><br><span class="line">83</span><br><span class="line">84</span><br><span class="line">85</span><br><span class="line">86</span><br><span class="line">87</span><br><span class="line">88</span><br><span class="line">89</span><br><span class="line">90</span><br><span class="line">91</span><br><span class="line">92</span><br><span class="line">93</span><br><span class="line">94</span><br><span class="line">95</span><br><span class="line">96</span><br><span class="line">97</span><br><span class="line">98</span><br><span class="line">99</span><br><span class="line">100</span><br><span class="line">101</span><br><span class="line">102</span><br><span class="line">103</span><br><span class="line">104</span><br><span class="line">105</span><br><span class="line">106</span><br><span class="line">107</span><br><span class="line">108</span><br><span class="line">109</span><br><span class="line">110</span><br><span class="line">111</span><br><span class="line">112</span><br><span class="line">113</span><br><span class="line">114</span><br><span class="line">115</span><br><span class="line">116</span><br><span class="line">117</span><br><span class="line">118</span><br><span class="line">119</span><br><span class="line">120</span><br><span class="line">121</span><br><span class="line">122</span><br><span class="line">123</span><br><span class="line">124</span><br><span class="line">125</span><br></pre></td><td class="code"><pre><span class="line">.func</span><br><span class="line">freertos_risc_v_trap_handler:</span><br><span class="line">	addi sp, sp, -portCONTEXT_SIZE</span><br><span class="line">	store_x x1, 1 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x5, 2 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x6, 3 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x7, 4 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x8, 5 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x9, 6 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x10, 7 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x11, 8 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x12, 9 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x13, 10 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x14, 11 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x15, 12 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x16, 13 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x17, 14 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x18, 15 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x19, 16 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x20, 17 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x21, 18 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x22, 19 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x23, 20 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x24, 21 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x25, 22 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x26, 23 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x27, 24 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x28, 25 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x29, 26 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x30, 27 * portWORD_SIZE( sp )</span><br><span class="line">	store_x x31, 28 * portWORD_SIZE( sp )</span><br><span class="line"></span><br><span class="line">	csrr t0, mstatus					&#x2F;* Required for MPIE bit. *&#x2F;</span><br><span class="line">	store_x t0, 29 * portWORD_SIZE( sp )</span><br><span class="line"></span><br><span class="line">	portasmSAVE_ADDITIONAL_REGISTERS	&#x2F;* Defined in freertos_risc_v_chip_specific_extensions.h to save any registers unique to the RISC-V implementation. *&#x2F;</span><br><span class="line"></span><br><span class="line">	load_x  t0, pxCurrentTCB			&#x2F;* Load pxCurrentTCB. *&#x2F;</span><br><span class="line">	store_x  sp, 0( t0 )				&#x2F;* Write sp to first TCB member. *&#x2F;</span><br><span class="line"></span><br><span class="line">	csrr a0, mcause</span><br><span class="line">	csrr a1, mepc</span><br><span class="line"></span><br><span class="line">test_if_asynchronous:</span><br><span class="line">	srli a2, a0, __riscv_xlen - 1		&#x2F;* MSB of mcause is 1 if handing an asynchronous interrupt - shift to LSB to clear other bits. *&#x2F;</span><br><span class="line">	beq a2, x0, handle_synchronous		&#x2F;* Branch past interrupt handing if not asynchronous. *&#x2F;</span><br><span class="line">	store_x a1, 0( sp )					&#x2F;* Asynch so save unmodified exception return address. *&#x2F;</span><br><span class="line"></span><br><span class="line">handle_asynchronous:</span><br><span class="line">    &#x2F;* TODO: 判断是定时器中断还是其他(外部)中断 *&#x2F;</span><br><span class="line">	load_x sp, xISRStackTop				&#x2F;* Switch to ISR stack before function call. *&#x2F;</span><br><span class="line">    call xPortClearTimerIntPending</span><br><span class="line">    jal xTaskIncrementTick</span><br><span class="line">    beqz a0, processed_source		&#x2F;* Don&#39;t switch context if incrementing tick didn&#39;t unblock a task. *&#x2F;</span><br><span class="line">    jal vTaskSwitchContext</span><br><span class="line">	#jal portasmHANDLE_INTERRUPT			&#x2F;* Jump to the interrupt handler if there is no CLINT or if there is a CLINT and it has been determined that an external interrupt is pending. *&#x2F;</span><br><span class="line">	j processed_source</span><br><span class="line"></span><br><span class="line">handle_synchronous:</span><br><span class="line">	addi a1, a1, 4						&#x2F;* Synchronous so updated exception return address to the instruction after the instruction that generated the exeption. *&#x2F;</span><br><span class="line">	store_x a1, 0( sp )					&#x2F;* Save updated exception return address. *&#x2F;</span><br><span class="line"></span><br><span class="line">test_if_environment_call:</span><br><span class="line">	li t0, 11 							&#x2F;* 11 &#x3D;&#x3D; environment call. *&#x2F;</span><br><span class="line">	bne a0, t0, is_exception			&#x2F;* Not an M environment call, so some other exception. *&#x2F;</span><br><span class="line">	load_x sp, xISRStackTop				&#x2F;* Switch to ISR stack before function call. *&#x2F;</span><br><span class="line">	jal vTaskSwitchContext</span><br><span class="line">	j processed_source</span><br><span class="line"></span><br><span class="line">is_exception:</span><br><span class="line">	csrr t0, mcause						&#x2F;* For viewing in the debugger only. *&#x2F;</span><br><span class="line">	csrr t1, mepc						&#x2F;* For viewing in the debugger only *&#x2F;</span><br><span class="line">	csrr t2, mstatus</span><br><span class="line">	j is_exception						&#x2F;* No other exceptions handled yet. *&#x2F;</span><br><span class="line"></span><br><span class="line">as_yet_unhandled:</span><br><span class="line">	csrr t0, mcause						&#x2F;* For viewing in the debugger only. *&#x2F;</span><br><span class="line">	j as_yet_unhandled</span><br><span class="line"></span><br><span class="line">processed_source:</span><br><span class="line">	load_x  t1, pxCurrentTCB			&#x2F;* Load pxCurrentTCB. *&#x2F;</span><br><span class="line">	load_x  sp, 0( t1 )				 	&#x2F;* Read sp from first TCB member. *&#x2F;</span><br><span class="line"></span><br><span class="line">	&#x2F;* Load mret with the address of the next instruction in the task to run next. *&#x2F;</span><br><span class="line">	load_x t0, 0( sp )</span><br><span class="line">	csrw mepc, t0</span><br><span class="line"></span><br><span class="line">	portasmRESTORE_ADDITIONAL_REGISTERS	&#x2F;* Defined in freertos_risc_v_chip_specific_extensions.h to restore any registers unique to the RISC-V implementation. *&#x2F;</span><br><span class="line"></span><br><span class="line">	&#x2F;* Load mstatus with the interrupt enable bits used by the task. *&#x2F;</span><br><span class="line">	load_x  t0, 29 * portWORD_SIZE( sp )</span><br><span class="line">	csrw mstatus, t0						&#x2F;* Required for MPIE bit. *&#x2F;</span><br><span class="line"></span><br><span class="line">	load_x  x1, 1 * portWORD_SIZE( sp )</span><br><span class="line">	load_x  x5, 2 * portWORD_SIZE( sp )		&#x2F;* t0 *&#x2F;</span><br><span class="line">	load_x  x6, 3 * portWORD_SIZE( sp )		&#x2F;* t1 *&#x2F;</span><br><span class="line">	load_x  x7, 4 * portWORD_SIZE( sp )		&#x2F;* t2 *&#x2F;</span><br><span class="line">	load_x  x8, 5 * portWORD_SIZE( sp )		&#x2F;* s0&#x2F;fp *&#x2F;</span><br><span class="line">	load_x  x9, 6 * portWORD_SIZE( sp )		&#x2F;* s1 *&#x2F;</span><br><span class="line">	load_x  x10, 7 * portWORD_SIZE( sp )	&#x2F;* a0 *&#x2F;</span><br><span class="line">	load_x  x11, 8 * portWORD_SIZE( sp )	&#x2F;* a1 *&#x2F;</span><br><span class="line">	load_x  x12, 9 * portWORD_SIZE( sp )	&#x2F;* a2 *&#x2F;</span><br><span class="line">	load_x  x13, 10 * portWORD_SIZE( sp )	&#x2F;* a3 *&#x2F;</span><br><span class="line">	load_x  x14, 11 * portWORD_SIZE( sp )	&#x2F;* a4 *&#x2F;</span><br><span class="line">	load_x  x15, 12 * portWORD_SIZE( sp )	&#x2F;* a5 *&#x2F;</span><br><span class="line">	load_x  x16, 13 * portWORD_SIZE( sp )	&#x2F;* a6 *&#x2F;</span><br><span class="line">	load_x  x17, 14 * portWORD_SIZE( sp )	&#x2F;* a7 *&#x2F;</span><br><span class="line">	load_x  x18, 15 * portWORD_SIZE( sp )	&#x2F;* s2 *&#x2F;</span><br><span class="line">	load_x  x19, 16 * portWORD_SIZE( sp )	&#x2F;* s3 *&#x2F;</span><br><span class="line">	load_x  x20, 17 * portWORD_SIZE( sp )	&#x2F;* s4 *&#x2F;</span><br><span class="line">	load_x  x21, 18 * portWORD_SIZE( sp )	&#x2F;* s5 *&#x2F;</span><br><span class="line">	load_x  x22, 19 * portWORD_SIZE( sp )	&#x2F;* s6 *&#x2F;</span><br><span class="line">	load_x  x23, 20 * portWORD_SIZE( sp )	&#x2F;* s7 *&#x2F;</span><br><span class="line">	load_x  x24, 21 * portWORD_SIZE( sp )	&#x2F;* s8 *&#x2F;</span><br><span class="line">	load_x  x25, 22 * portWORD_SIZE( sp )	&#x2F;* s9 *&#x2F;</span><br><span class="line">	load_x  x26, 23 * portWORD_SIZE( sp )	&#x2F;* s10 *&#x2F;</span><br><span class="line">	load_x  x27, 24 * portWORD_SIZE( sp )	&#x2F;* s11 *&#x2F;</span><br><span class="line">	load_x  x28, 25 * portWORD_SIZE( sp )	&#x2F;* t3 *&#x2F;</span><br><span class="line">	load_x  x29, 26 * portWORD_SIZE( sp )	&#x2F;* t4 *&#x2F;</span><br><span class="line">	load_x  x30, 27 * portWORD_SIZE( sp )	&#x2F;* t5 *&#x2F;</span><br><span class="line">	load_x  x31, 28 * portWORD_SIZE( sp )	&#x2F;* t6 *&#x2F;</span><br><span class="line">	addi sp, sp, portCONTEXT_SIZE</span><br><span class="line"></span><br><span class="line">	mret</span><br><span class="line">	.endfunc</span><br></pre></td></tr></table></figure>
+
+<p>第3~34行，保护现场，即将寄存器压栈。</p>
+<p>第36行，保存额外的寄存器，这里什么都不做。</p>
+<p>第38~39行，将sp的值保存在当前TCB的起始地址处。</p>
+<p>第41行，读取mcause的值到a0寄存器。</p>
+<p>第42行，读取mepc的值到a1寄存器。</p>
+<p>第45行，将a0寄存器的值右移31位，将移位后的值写入a2寄存器。</p>
+<p>第46行，判断a2寄存器的值是否等于0，即判断是中断（异步中断）还是异常（同步中断），如果等于0则跳转到第59行。这里假设a2的值不等于0，因此继续往下看。</p>
+<p>第47行，将中断返回地址保存在栈顶。</p>
+<p>第51行，使用中断栈，即在中断里有专门的栈空间来进行函数调用。</p>
+<p>第52行，调用xPortClearTimerIntPending()函数，在这里该函数的作用是清定时器中断pending。目前在freertos这个demo里只有定时器中断，因此就没有判断是否是其他外部中断了。</p>
+<p>第53行，调用xTaskIncrementTick()函数，这个函数的返回值决定了是否需要切换到其他任务。如果返回值为0，表示不需要切换，否则需要任务切换。</p>
+<p>第54行，判断xTaskIncrementTick()函数的返回值是否等于0，如果是则跳转到第80行，这里假设返回值不等于0。</p>
+<p>第55行，调用vTaskSwitchContext()函数，这个函数会切换当前TCB到将要执行的任务上。</p>
+<p>第57行，跳转到第80行。</p>
+<p>第81~82行，使用当前TCB的sp。</p>
+<p>第85~86行，将中断返回地址写入mepc寄存器。</p>
+<p>第88行，恢复额外的寄存器，这里什么都没做。</p>
+<p>第91~122行，从栈里恢复寄存器的值，这和前面进入中断时的保存现场操作是成对的，即恢复现场。</p>
+<p>第124行，中断返回，从mepc的值所指的地址处开始执行代码。</p>
+<p>接下来，看回第46行，如果a2寄存器的值为0，则跳转到第第59行。</p>
+<p>第60行，将a1的值加4，即将中断返回地址的值加4，后面会用到。</p>
+<p>第61行，将a1的值写入sp寄存器。</p>
+<p>第64~65行，判断a0的值是否等于11，即mcause的值是否等于11，即是否是ecall指令异常。如果不是则跳转到第70行。</p>
+<p>第70~74行是一段死循环代码。</p>
+<p>第66~68行，前面已经分析过了。</p>
+<p>总结一下，移植freertos需要修改以下几个地方：</p>
+<p>1.修改prvSetupHardware()函数，在里面做一些硬件初始化的操作。</p>
+<p>2.修改vPortSetupTimerInterrupt()函数，在里面初始化并使能系统滴答定时器。</p>
+<p>3.修改freertos_risc_v_trap_handler()函数，根据具体的硬件实现处理好中断返回地址和中断（异常）的判断。</p>
+<h1 id="写在最后"><a href="#写在最后" class="headerlink" title="写在最后"></a>写在最后</h1><h2 id="调试经验"><a href="#调试经验" class="headerlink" title="调试经验"></a>调试经验</h2><p>作为一名还没入门的数字设计新手的我，其实没什么设计、调试经验可谈，这里只是分享一下我在设计tinyriscv处理器过程中用到的调试方法。</p>
+<p>设计tinyriscv用到的工具有两个，分别是iverilog和gtkwave，这两个都是跨平台、轻量级的工具。iverilog用来编译verilog代码，gtkwave用来查看波形。</p>
+<p>验证一个处理器，首先是能跑通各个指令，RISC-V官方提供了指令兼容性测试程序，这些程序是用汇编语言编写的，当编译这些程序之后，会生成对应的elf、bin文件，还有反汇编(dump)文件。通过vvp工具生成波形(vcd)文件后，再用gtkwave打开波形文件，然后对照着反汇编文件查看要关心的信号。比如在测试add指令时，就需要看ex阶段时reg_we_o信号是否为1，reg_wdata_o和reg_waddr_o信号的值是否正确。就这样，将反汇编文件里的每一条指令都对着信号波形走一遍(流水线的每一个阶段)，如果所有反汇编指令的执行过程都符合预期，则表示这条指令测试基本上通过了。注意，这里只是说基本上，并不是说一定没问题，因为即使你把RISC-V的全部指令兼容性测试都通过了，也不能说明你设计的RISC-V处理器就没问题了，后续还要经过更多的测试和验证，比如随机指令测试等等。</p>
+<h2 id="设计感言"><a href="#设计感言" class="headerlink" title="设计感言"></a>设计感言</h2><p>我是从零开始设计tinyriscv处理器的，虽然已经工作好几年了，但是我工作的内容可以说与数字设计没有任何关系。之所以跨度这么大，第一是在各种“掐脖子”的环境下，我个人非常看好RISC-V的前景，我不想错过这个黄金时代。第二是想结合实际工作拓展一下自己的知识面，将底层软件理解得更深入，技多不压身。第三，当时网上关于RISC-V入门的资料还很少，决定自己写一个RISC-V处理器，并将设计过程分享出来，提高自己的同时希望可以帮助到更多想入门RISC-V的同学。第四是机会总是留给有准备的人的，哪天有机会出来创业或者转型的话，RISC-V必定是我的首选。</p>
+<p>前面说到我的工作与数字设计是没有关系的，而且上班时间比较长(差不多996)，因此我只能利用业余时间、下班后的时间、周末休息的时间来学习，以至于会感觉到休息比上班还要累，放弃了很多陪伴家人和小孩的时间。为了学习verilog和数字设计，我买了不少于10本相关的书籍，一边学一边看，遇到不懂的知识点再查看相关的章节。</p>
+<p>对于tinyriscv，我是以一个实际项目来做的，我给自己制定了一个目标，就是每个月至少做一次大的更新。一边做设计一边还要写文档，以至于有段时间好几个月没更新到文档，不少网友都催更了好几次了，在这里跟大家说声不好意思，让你们久等了。有时候眼看快一个月没有更新项目了，此时心里会非常着急，以至于好几次睡梦中都在想着怎么完成本次功能的设计的事情。说实话，我完全可以没有任何压力地、慢慢地去完成这个项目，完全没必要给自己这么大的压力。但我没有这么做，我要对自己负责，更要对这些学习tinyriscv的同学负责。看到大家一个个的star，就是我更新的最大动力。</p>
+<p>tinyriscv是我真正做开源、走向开源的第一个项目，通过这个项目我认识了不少朋友，有国内一流大学硕士毕业刚参加工作的HYF同学，有硕士在读的ZK同学，有出版社的编辑，有创业公司的老总等等。目前tinyriscv的功能还不是很完善，更新速度也变慢了，这是因为我在设计上遇到了瓶颈，还有很多相关的知识需要学习才能继续走下去，才能走得更远，还请大家多多见谅。</p>
+<p>最后，文笔有限，这个设计文档写得不是详细，写得也不是很好，如有不对的地方还请多多包涵。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/RISC-V/" rel="tag"># RISC-V</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2020/03/21/%E6%B7%B1%E5%85%A5%E6%B5%85%E5%87%BARISC-V%E8%B0%83%E8%AF%95/" rel="prev" title="深入浅出RISC-V调试">
+      <i class="fa fa-chevron-left"></i> 深入浅出RISC-V调试
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+  </div>
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-1"><a class="nav-link" href="#前言"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-1"><a class="nav-link" href="#绪论"><span class="nav-number">2.</span> <span class="nav-text">绪论</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#RISC-V是什么"><span class="nav-number">2.1.</span> <span class="nav-text">RISC-V是什么</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#既生ARM，何生RISC-V"><span class="nav-number">2.2.</span> <span class="nav-text">既生ARM，何生RISC-V</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#浅谈Verilog"><span class="nav-number">2.3.</span> <span class="nav-text">浅谈Verilog</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#用always描述组合逻辑电路"><span class="nav-number">2.4.</span> <span class="nav-text">用always描述组合逻辑电路</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#数字电路设计中的时序问题"><span class="nav-number">2.5.</span> <span class="nav-text">数字电路设计中的时序问题</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#流水线设计"><span class="nav-number">2.6.</span> <span class="nav-text">流水线设计</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#代码风格"><span class="nav-number">2.7.</span> <span class="nav-text">代码风格</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#缩进"><span class="nav-number">2.7.1.</span> <span class="nav-text">缩进</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#if语句"><span class="nav-number">2.7.2.</span> <span class="nav-text">if语句</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#case语句"><span class="nav-number">2.7.3.</span> <span class="nav-text">case语句</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#always语句"><span class="nav-number">2.7.4.</span> <span class="nav-text">always语句</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#其他"><span class="nav-number">2.7.5.</span> <span class="nav-text">其他</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#硬件篇"><span class="nav-number">3.</span> <span class="nav-text">硬件篇</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#PC寄存器"><span class="nav-number">3.1.</span> <span class="nav-text">PC寄存器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#通用寄存器"><span class="nav-number">3.2.</span> <span class="nav-text">通用寄存器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#取指"><span class="nav-number">3.3.</span> <span class="nav-text">取指</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#译码"><span class="nav-number">3.4.</span> <span class="nav-text">译码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#执行"><span class="nav-number">3.5.</span> <span class="nav-text">执行</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#访存"><span class="nav-number">3.6.</span> <span class="nav-text">访存</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#回写"><span class="nav-number">3.7.</span> <span class="nav-text">回写</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#跳转和流水线暂停"><span class="nav-number">3.8.</span> <span class="nav-text">跳转和流水线暂停</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#总线"><span class="nav-number">3.9.</span> <span class="nav-text">总线</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#中断"><span class="nav-number">3.10.</span> <span class="nav-text">中断</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#JTAG"><span class="nav-number">3.11.</span> <span class="nav-text">JTAG</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RTL仿真验证"><span class="nav-number">3.12.</span> <span class="nav-text">RTL仿真验证</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#软件篇"><span class="nav-number">4.</span> <span class="nav-text">软件篇</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#RISC-V汇编语言"><span class="nav-number">4.1.</span> <span class="nav-text">RISC-V汇编语言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Makefile"><span class="nav-number">4.2.</span> <span class="nav-text">Makefile</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#链接脚本"><span class="nav-number">4.3.</span> <span class="nav-text">链接脚本</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#启动代码"><span class="nav-number">4.4.</span> <span class="nav-text">启动代码</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#异常和中断"><span class="nav-number">4.5.</span> <span class="nav-text">异常和中断</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#mstatus（Machine-Status-Register）"><span class="nav-number">4.5.1.</span> <span class="nav-text">mstatus（Machine Status Register）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mie（Machine-Interrupt-Enable-Register）"><span class="nav-number">4.5.2.</span> <span class="nav-text">mie（Machine Interrupt Enable Register）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mip（Machine-Interrupt-Pending-Register）"><span class="nav-number">4.5.3.</span> <span class="nav-text">mip（Machine Interrupt Pending Register）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mtvec（Machine-Trap-Vector-Base-Address-Register）"><span class="nav-number">4.5.4.</span> <span class="nav-text">mtvec（Machine Trap-Vector Base-Address Register）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mcause（Machine-Cause-Register）"><span class="nav-number">4.5.5.</span> <span class="nav-text">mcause（Machine Cause Register）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#mepc（Machine-Exception-Program-Counter）"><span class="nav-number">4.5.6.</span> <span class="nav-text">mepc（Machine Exception Program Counter）</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#中断（异常）代码分析"><span class="nav-number">4.5.7.</span> <span class="nav-text">中断（异常）代码分析</span></a></li></ol></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#实践篇"><span class="nav-number">5.</span> <span class="nav-text">实践篇</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#移植tinyriscv到FPGA"><span class="nav-number">5.1.</span> <span class="nav-text">移植tinyriscv到FPGA</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#编写和运行C语言程序"><span class="nav-number">5.2.</span> <span class="nav-text">编写和运行C语言程序</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#移植FreeRTOS"><span class="nav-number">5.3.</span> <span class="nav-text">移植FreeRTOS</span></a></li></ol></li><li class="nav-item nav-level-1"><a class="nav-link" href="#写在最后"><span class="nav-number">6.</span> <span class="nav-text">写在最后</span></a><ol class="nav-child"><li class="nav-item nav-level-2"><a class="nav-link" href="#调试经验"><span class="nav-number">6.1.</span> <span class="nav-text">调试经验</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#设计感言"><span class="nav-number">6.2.</span> <span class="nav-text">设计感言</span></a></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="liangkangnan"
+      src="/images/me.png">
+  <p class="site-author-name" itemprop="name">liangkangnan</p>
+  <div class="site-description" itemprop="description">技术的高低不是取决于你C/C++写得多么牛逼，而是取决于你掌握的资源有多少。</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">2</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">1</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">2</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+  <div class="links-of-author motion-element">
+      <span class="links-of-author-item">
+        <a href="https://gitee.com/liangkangnan" title="Gitee → https:&#x2F;&#x2F;gitee.com&#x2F;liangkangnan" rel="noopener" target="_blank"><i class="fa fa-fw fa-git"></i>Gitee</a>
+      </span>
+      <span class="links-of-author-item">
+        <a href="mailto:liangkangnan@163.com" title="E-Mail → mailto:liangkangnan@163.com" rel="noopener" target="_blank"><i class="fa fa-fw fa-envelope"></i>E-Mail</a>
+      </span>
+  </div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+<div class="copyright">
+  
+  &copy; 2020 – 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-user"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">liangkangnan</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-area-chart"></i>
+    </span>
+    <span title="站点总字数">70k</span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item-icon">
+      <i class="fa fa-coffee"></i>
+    </span>
+    <span title="站点阅读时长">1:03</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> 强力驱动 v4.2.0
+  </div>
+  <span class="post-meta-divider">|</span>
+  <div class="theme-info">主题 – <a href="https://muse.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a> v7.7.2
+  </div>
+
+        
+<div class="busuanzi-count">
+  <script async src="https://busuanzi.ibruce.info/busuanzi/2.3/busuanzi.pure.mini.js"></script>
+    <span class="post-meta-item" id="busuanzi_container_site_uv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-user"></i>
+      </span>
+      <span class="site-uv" title="总访客量">
+        本站访客数: <span id="busuanzi_value_site_uv"></span>
+      </span>
+    </span>
+    <span class="post-meta-divider">|</span>
+    <span class="post-meta-item" id="busuanzi_container_site_pv" style="display: none;">
+      <span class="post-meta-item-icon">
+        <i class="fa fa-eye"></i>
+      </span>
+      <span class="site-pv" title="总访问量">
+        本站访问量: <span id="busuanzi_value_site_pv"></span>
+      </span>
+    </span>
+</div>
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+</body>
+</html>
